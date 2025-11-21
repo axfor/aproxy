@@ -711,6 +711,7 @@ For a detailed list of limitations, see [DESIGN.md](docs/DESIGN.md)
 
 ## Documentation
 
+- [**MySQL Compatibility List**](docs/COMPATIBILITY.md) - **Complete list of supported and unsupported MySQL features**
 - [Quick Start Guide](docs/QUICKSTART.md) - Quick deployment and usage tutorial
 - [Design Document](docs/DESIGN.md) - Architecture design and technical decisions
 - [Operations Manual](docs/RUNBOOK.md) - Deployment, configuration, and troubleshooting

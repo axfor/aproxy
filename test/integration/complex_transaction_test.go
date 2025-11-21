@@ -652,8 +652,6 @@ func TestTransactionRollbackScenarios(t *testing.T) {
 
 // TestMultiTableTransaction tests transactions spanning multiple tables
 func TestMultiTableTransaction(t *testing.T) {
-	t.Skip("TODO: Fix transaction aborted issue with multiple tables")
-
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 

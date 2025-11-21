@@ -26,6 +26,9 @@ type Session struct {
 	userVars      map[string]interface{}
 	preparedStmts map[uint32]*PreparedStatement
 
+	// Track tables with AUTO_INCREMENT: map[tableName]columnName
+	autoIncrementTables map[string]string
+
 	pgConn *pgx.Conn
 	mu     sync.RWMutex
 }
@@ -55,19 +58,20 @@ func NewManager() *Manager {
 
 func NewSession(user, database, clientAddr string) *Session {
 	return &Session{
-		ID:            uuid.New().String(),
-		User:          user,
-		Database:      database,
-		Charset:       "utf8mb4",
-		Autocommit:    true,
-		InTransaction: false,
-		LastInsertID:  0,
-		CreatedAt:     time.Now(),
-		LastActiveAt:  time.Now(),
-		ClientAddr:    clientAddr,
-		sessionVars:   make(map[string]interface{}),
-		userVars:      make(map[string]interface{}),
-		preparedStmts: make(map[uint32]*PreparedStatement),
+		ID:                  uuid.New().String(),
+		User:                user,
+		Database:            database,
+		Charset:             "utf8mb4",
+		Autocommit:          true,
+		InTransaction:       false,
+		LastInsertID:        0,
+		CreatedAt:           time.Now(),
+		LastActiveAt:        time.Now(),
+		ClientAddr:          clientAddr,
+		sessionVars:         make(map[string]interface{}),
+		userVars:            make(map[string]interface{}),
+		preparedStmts:       make(map[uint32]*PreparedStatement),
+		autoIncrementTables: make(map[string]string),
 	}
 }
 
@@ -304,4 +308,18 @@ func (s *Session) Close() error {
 	}
 
 	return nil
+}
+
+// MarkTableHasAutoIncrement marks a table as having an AUTO_INCREMENT column
+func (s *Session) MarkTableHasAutoIncrement(tableName, columnName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.autoIncrementTables[tableName] = columnName
+}
+
+// GetAutoIncrementColumn returns the AUTO_INCREMENT column name for a table, or empty string if none
+func (s *Session) GetAutoIncrementColumn(tableName string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.autoIncrementTables[tableName]
 }

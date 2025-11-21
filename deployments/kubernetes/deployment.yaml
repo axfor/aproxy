@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aproxy-config
+  namespace: default
+data:
+  config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 3306
+      max_connections: 1000
+      max_packet_size: 16777216
+      read_timeout: 30s
+      write_timeout: 30s
+
+    postgres:
+      host: "postgres-service"
+      port: 5432
+      database: "postgres"
+      user: "postgres"
+      password: "postgres"
+      max_pool_size: 100
+      connection_mode: "session_affinity"
+      ssl_mode: "prefer"
+
+    auth:
+      mode: "pass_through"
+      allowed_users: []
+
+    security:
+      rate_limit_per_second: 1000
+      max_connections_per_ip: 10
+      enable_tls: false
+      tls_cert: ""
+      tls_key: ""
+      dangerous_commands_blacklist:
+        - "COM_BINLOG_DUMP"
+        - "FLUSH PRIVILEGES"
+
+    sql_rewrite:
+      enabled: true
+      custom_rules: ""
+
+    observability:
+      metrics_port: 9090
+      log_level: "info"
+      log_format: "json"
+      enable_query_log: false
+      redact_parameters: true
+      enable_tracing: false
+      tracing_endpoint: "localhost:4318"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aproxy
+  namespace: default
+  labels:
+    app: aproxy
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aproxy
+  template:
+    metadata:
+      labels:
+        app: aproxy
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: aproxy
+        image: aproxy:latest
+        imagePullPolicy: IfNotPresent
+        args:
+          - "-config"
+          - "/app/config.yaml"
+        ports:
+        - name: mysql
+          containerPort: 3306
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        volumeMounts:
+        - name: config
+          mountPath: /app
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: aproxy-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aproxy
+  namespace: default
+  labels:
+    app: aproxy
+spec:
+  type: LoadBalancer
+  selector:
+    app: aproxy
+  ports:
+  - name: mysql
+    port: 3306
+    targetPort: mysql
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aproxy-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: aproxy
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aproxy-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aproxy
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

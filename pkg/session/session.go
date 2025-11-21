@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -318,8 +319,60 @@ func (s *Session) MarkTableHasAutoIncrement(tableName, columnName string) {
 }
 
 // GetAutoIncrementColumn returns the AUTO_INCREMENT column name for a table, or empty string if none
+// If the table info is not cached, it queries PostgreSQL system tables to discover it
 func (s *Session) GetAutoIncrementColumn(tableName string) string {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.autoIncrementTables[tableName]
+	col, checked := s.autoIncrementTables[tableName]
+	s.mu.RUnlock()
+
+	if checked {
+		// Already checked this table (col might be empty string if no auto-increment)
+		return col
+	}
+
+	// Not in cache, query PostgreSQL to discover the schema
+	col = s.queryAutoIncrementColumn(tableName)
+
+	// Cache the result (even if empty) to avoid repeated queries
+	s.mu.Lock()
+	s.autoIncrementTables[tableName] = col
+	s.mu.Unlock()
+
+	return col
+}
+
+// queryAutoIncrementColumn queries PostgreSQL system tables to find auto-increment column
+// This handles tables created before aproxy started or created via direct psql access
+func (s *Session) queryAutoIncrementColumn(tableName string) string {
+	if s.pgConn == nil {
+		return ""
+	}
+
+	ctx := context.Background()
+
+	// Query PostgreSQL information_schema to find SERIAL or IDENTITY columns
+	// SERIAL columns have column_default like 'nextval(...)'
+	// IDENTITY columns have is_identity = 'YES'
+	query := `
+		SELECT column_name
+		FROM information_schema.columns
+		WHERE table_name = $1
+		  AND table_schema = current_schema()
+		  AND (
+		      column_default LIKE 'nextval(%'
+		      OR is_identity = 'YES'
+		  )
+		ORDER BY ordinal_position
+		LIMIT 1
+	`
+
+	var columnName string
+	err := s.pgConn.QueryRow(ctx, query, strings.ToLower(tableName)).Scan(&columnName)
+	if err != nil {
+		// No auto-increment column found or query failed
+		// Return empty string and cache it to avoid repeated queries
+		return ""
+	}
+
+	return columnName
 }

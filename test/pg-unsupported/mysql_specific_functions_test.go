@@ -181,25 +181,58 @@ func TestMySQLSpecific_LAST_INSERT_ID(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Exec("DROP TABLE IF EXISTS test_last_id")
 
-	// Insert first row
-	_, err = db.Exec("INSERT INTO test_last_id (val) VALUES (100)")
+	// Test 1: Insert single row and verify LastInsertId() from result
+	result, err := db.Exec("INSERT INTO test_last_id (val) VALUES (100)")
 	require.NoError(t, err)
 
-	// Query LAST_INSERT_ID() - should return the ID of first insert
-	var lastID int64
-	err = db.QueryRow("SELECT LAST_INSERT_ID()").Scan(&lastID)
-	assert.NoError(t, err)
-	assert.Greater(t, lastID, int64(0))
-
-	// Insert second row
-	_, err = db.Exec("INSERT INTO test_last_id (val) VALUES (200)")
+	lastIDFromResult, err := result.LastInsertId()
 	require.NoError(t, err)
+	assert.Greater(t, lastIDFromResult, int64(0))
 
-	// Query LAST_INSERT_ID() again - should return the ID of second insert
-	var lastID2 int64
-	err = db.QueryRow("SELECT LAST_INSERT_ID()").Scan(&lastID2)
+	// Test 2: Verify LAST_INSERT_ID() function matches result.LastInsertId()
+	var lastIDFromFunc int64
+	err = db.QueryRow("SELECT LAST_INSERT_ID()").Scan(&lastIDFromFunc)
 	assert.NoError(t, err)
-	assert.Equal(t, lastID+1, lastID2)
+	assert.Equal(t, lastIDFromResult, lastIDFromFunc, "LAST_INSERT_ID() should match result.LastInsertId()")
+
+	// Test 3: Insert 1000 rows and verify last insert ID after batch
+	for i := 0; i < 1000; i++ {
+		result, err = db.Exec("INSERT INTO test_last_id (val) VALUES (?)", 200+i)
+		require.NoError(t, err)
+	}
+
+	// Get the last insert ID from the result of the 1000th insert
+	lastIDAfter1000, err := result.LastInsertId()
+	require.NoError(t, err)
+	assert.Equal(t, lastIDFromResult+1000, lastIDAfter1000, "After 1000 inserts, last ID should be first ID + 1000")
+
+	// Test 4: Verify LAST_INSERT_ID() function returns the last inserted ID
+	var lastIDFromFunc2 int64
+	err = db.QueryRow("SELECT LAST_INSERT_ID()").Scan(&lastIDFromFunc2)
+	assert.NoError(t, err)
+	assert.Equal(t, lastIDAfter1000, lastIDFromFunc2, "LAST_INSERT_ID() should return the last inserted ID after 1000 inserts")
+
+	// Test 5: Insert a batch of 500 more rows
+	for i := 0; i < 500; i++ {
+		result, err = db.Exec("INSERT INTO test_last_id (val) VALUES (?)", 1200+i)
+		require.NoError(t, err)
+	}
+
+	lastIDAfter1500, err := result.LastInsertId()
+	require.NoError(t, err)
+	assert.Equal(t, lastIDFromResult+1500, lastIDAfter1500, "After 1500 total inserts, last ID should be first ID + 1500")
+
+	// Test 6: Verify LAST_INSERT_ID() still works after more inserts
+	var lastIDFromFunc3 int64
+	err = db.QueryRow("SELECT LAST_INSERT_ID()").Scan(&lastIDFromFunc3)
+	assert.NoError(t, err)
+	assert.Equal(t, lastIDAfter1500, lastIDFromFunc3, "LAST_INSERT_ID() should return the latest inserted ID")
+
+	// Test 7: Verify the total count is 1501 (1 initial + 1500 batch)
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM test_last_id").Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1501, count, "Should have 1501 total rows")
 }
 
 // TestMySQLSpecific_FORMAT tests FORMAT() function for number formatting

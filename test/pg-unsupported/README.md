@@ -81,7 +81,7 @@
 | GROUP_CONCAT() | ✅ 已支持 | string_agg() (自动转换) |
 | ENCRYPT() | ❌ 不支持 | pgcrypto 扩展 |
 | PASSWORD() | ❌ 已废弃 | 无 |
-| LAST_INSERT_ID() | ✅ 已支持 | Session state tracking |
+| LAST_INSERT_ID() | ✅ 已支持 | lastval() (自动转换) |
 | FORMAT() | ⚠️ 语法不同 | TO_CHAR() |
 | INET_ATON() | ❌ 不支持 | inet 数据类型 |
 | INET_NTOA() | ❌ 不支持 | inet 数据类型 |

@@ -170,7 +170,7 @@ func TestMySQLSpecific_PASSWORD(t *testing.T) {
 
 // TestMySQLSpecific_LAST_INSERT_ID tests LAST_INSERT_ID() function
 // PG Alternative: RETURNING clause or currval()
-// NOTE: This is now supported via session state tracking
+// NOTE: This is now supported via direct conversion to lastval()
 func TestMySQLSpecific_LAST_INSERT_ID(t *testing.T) {
 	db, err := sql.Open("mysql", proxyDSN)
 	require.NoError(t, err)

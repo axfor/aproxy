@@ -3,11 +3,13 @@ package session
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"aproxy/pkg/schema"
 )
 
 type Session struct {
@@ -25,6 +27,9 @@ type Session struct {
 	sessionVars   map[string]interface{}
 	userVars      map[string]interface{}
 	preparedStmts map[uint32]*PreparedStatement
+
+	// Track tables with AUTO_INCREMENT: map[tableName]columnName
+	autoIncrementTables map[string]string
 
 	pgConn *pgx.Conn
 	mu     sync.RWMutex
@@ -55,19 +60,20 @@ func NewManager() *Manager {
 
 func NewSession(user, database, clientAddr string) *Session {
 	return &Session{
-		ID:            uuid.New().String(),
-		User:          user,
-		Database:      database,
-		Charset:       "utf8mb4",
-		Autocommit:    true,
-		InTransaction: false,
-		LastInsertID:  0,
-		CreatedAt:     time.Now(),
-		LastActiveAt:  time.Now(),
-		ClientAddr:    clientAddr,
-		sessionVars:   make(map[string]interface{}),
-		userVars:      make(map[string]interface{}),
-		preparedStmts: make(map[uint32]*PreparedStatement),
+		ID:                  uuid.New().String(),
+		User:                user,
+		Database:            database,
+		Charset:             "utf8mb4",
+		Autocommit:          true,
+		InTransaction:       false,
+		LastInsertID:        0,
+		CreatedAt:           time.Now(),
+		LastActiveAt:        time.Now(),
+		ClientAddr:          clientAddr,
+		sessionVars:         make(map[string]interface{}),
+		userVars:            make(map[string]interface{}),
+		preparedStmts:       make(map[uint32]*PreparedStatement),
+		autoIncrementTables: make(map[string]string),
 	}
 }
 
@@ -304,4 +310,54 @@ func (s *Session) Close() error {
 	}
 
 	return nil
+}
+
+// MarkTableHasAutoIncrement marks a table as having an AUTO_INCREMENT column
+func (s *Session) MarkTableHasAutoIncrement(tableName, columnName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.autoIncrementTables[tableName] = columnName
+}
+
+// GetAutoIncrementColumn returns the AUTO_INCREMENT column name for a table, or empty string if none
+// Uses the global schema cache shared across all sessions for better performance
+func (s *Session) GetAutoIncrementColumn(tableName string) string {
+	// Use global cache with database.table format
+	return schema.GetGlobalCache().GetAutoIncrementColumn(s.pgConn, s.Database, tableName)
+}
+
+// queryAutoIncrementColumn queries PostgreSQL system tables to find auto-increment column
+// This handles tables created before aproxy started or created via direct psql access
+func (s *Session) queryAutoIncrementColumn(tableName string) string {
+	if s.pgConn == nil {
+		return ""
+	}
+
+	ctx := context.Background()
+
+	// Query PostgreSQL information_schema to find SERIAL or IDENTITY columns
+	// SERIAL columns have column_default like 'nextval(...)'
+	// IDENTITY columns have is_identity = 'YES'
+	query := `
+		SELECT column_name
+		FROM information_schema.columns
+		WHERE table_name = $1
+		  AND table_schema = current_schema()
+		  AND (
+		      column_default LIKE 'nextval(%'
+		      OR is_identity = 'YES'
+		  )
+		ORDER BY ordinal_position
+		LIMIT 1
+	`
+
+	var columnName string
+	err := s.pgConn.QueryRow(ctx, query, strings.ToLower(tableName)).Scan(&columnName)
+	if err != nil {
+		// No auto-increment column found or query failed
+		// Return empty string and cache it to avoid repeated queries
+		return ""
+	}
+
+	return columnName
 }

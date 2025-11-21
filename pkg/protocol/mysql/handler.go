@@ -10,6 +10,7 @@ import (
 	"aproxy/internal/pool"
 	"aproxy/pkg/mapper"
 	"aproxy/pkg/observability"
+	"aproxy/pkg/schema"
 	"aproxy/pkg/session"
 	"aproxy/pkg/sqlrewrite"
 	"github.com/go-mysql-org/go-mysql/mysql"
@@ -204,25 +205,20 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 
 		// Special handling for INSERT to get last insert ID
 		if strings.HasPrefix(upperQuery, "INSERT") {
-			// Check if table has SERIAL column by trying RETURNING id
-			returningSQL := rewrittenSQL
-			if !strings.Contains(strings.ToUpper(rewrittenSQL), "RETURNING") {
-				returningSQL = rewrittenSQL + " RETURNING id"
-			}
+			// Check if this table has an AUTO_INCREMENT column
+			tableName := extractInsertTableName(query)
+			autoIncrColumn := ch.session.GetAutoIncrementColumn(tableName)
 
-			// Try with RETURNING first to get the inserted ID
-			rows, err := ch.pgConn.Query(ctx, returningSQL)
-			if err != nil {
-				// If RETURNING fails (e.g., no id column), fall back to Exec
-				cmdTag, err := ch.pgConn.Exec(ctx, rewrittenSQL)
+			if autoIncrColumn != "" && !strings.Contains(strings.ToUpper(rewrittenSQL), "RETURNING") {
+				// Table has AUTO_INCREMENT, use RETURNING to get the inserted ID
+				returningSQL := rewrittenSQL + " RETURNING " + autoIncrColumn
+				rows, err := ch.pgConn.Query(ctx, returningSQL)
 				if err != nil {
 					ch.handler.metrics.IncErrors("query")
 					errorCode, errorMsg := ch.handler.errorMapper.MapError(err)
 					ch.handler.logger.LogQuery(ch.session.ID, ch.session.User, ch.session.ClientAddr, query, time.Since(startTime).Seconds(), 0, err)
 					return nil, mysql.NewError(errorCode, errorMsg)
 				}
-				rowsAffected = cmdTag.RowsAffected()
-			} else {
 				defer rows.Close()
 				// Get the returned ID
 				if rows.Next() {
@@ -232,6 +228,16 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 					}
 				}
 				rowsAffected = 1 // INSERT with RETURNING always affects 1 row if successful
+			} else {
+				// Table doesn't have AUTO_INCREMENT or already has RETURNING, just execute
+				cmdTag, err := ch.pgConn.Exec(ctx, rewrittenSQL)
+				if err != nil {
+					ch.handler.metrics.IncErrors("query")
+					errorCode, errorMsg := ch.handler.errorMapper.MapError(err)
+					ch.handler.logger.LogQuery(ch.session.ID, ch.session.User, ch.session.ClientAddr, query, time.Since(startTime).Seconds(), 0, err)
+					return nil, mysql.NewError(errorCode, errorMsg)
+				}
+				rowsAffected = cmdTag.RowsAffected()
 			}
 		} else {
 			// Use Exec for non-INSERT DDL/DML statements
@@ -243,6 +249,32 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 				return nil, mysql.NewError(errorCode, errorMsg)
 			}
 			rowsAffected = cmdTag.RowsAffected()
+
+			// Handle DDL statements: invalidate schema cache
+			if strings.HasPrefix(upperQuery, "CREATE TABLE") {
+				tableName := extractCreateTableName(query)
+
+				// Invalidate cache for the new table (it will be refreshed on first INSERT)
+				schema.GetGlobalCache().InvalidateTable(ch.session.Database, tableName)
+
+				// Also mark in session for backward compatibility
+				columnName := extractAutoIncrementColumn(query)
+				if tableName != "" && columnName != "" {
+					ch.session.MarkTableHasAutoIncrement(tableName, columnName)
+				}
+			} else if strings.HasPrefix(upperQuery, "ALTER TABLE") {
+				// ALTER TABLE may change AUTO_INCREMENT columns
+				tableName := extractAlterTableName(query)
+				if tableName != "" {
+					schema.GetGlobalCache().InvalidateTable(ch.session.Database, tableName)
+				}
+			} else if strings.HasPrefix(upperQuery, "DROP TABLE") {
+				// DROP TABLE removes the table
+				tableName := extractDropTableName(query)
+				if tableName != "" {
+					schema.GetGlobalCache().InvalidateTable(ch.session.Database, tableName)
+				}
+			}
 		}
 
 		// Note: Additional DDL statements are no longer needed with AST rewriter
@@ -448,23 +480,18 @@ func (ch *ConnectionHandler) HandleStmtExecute(data interface{}, query string, a
 
 		// Special handling for INSERT to get last insert ID
 		if strings.HasPrefix(upperQuery, "INSERT") {
-			// Add RETURNING id to get the inserted ID
-			returningSQL := stmt.SQL
-			if !strings.Contains(strings.ToUpper(stmt.SQL), "RETURNING") {
-				returningSQL = stmt.SQL + " RETURNING id"
-			}
+			// Check if this table has an AUTO_INCREMENT column
+			tableName := extractInsertTableName(stmt.OriginalSQL)
+			autoIncrColumn := ch.session.GetAutoIncrementColumn(tableName)
 
-			// Try with RETURNING first to get the inserted ID
-			rows, err := ch.pgConn.Query(ctx, returningSQL, convertedArgs...)
-			if err != nil {
-				// If RETURNING fails (e.g., no id column), fall back to Exec
-				cmdTag, err := ch.pgConn.Exec(ctx, stmt.SQL, convertedArgs...)
+			if autoIncrColumn != "" && !strings.Contains(strings.ToUpper(stmt.SQL), "RETURNING") {
+				// Table has AUTO_INCREMENT, use RETURNING to get the inserted ID
+				returningSQL := stmt.SQL + " RETURNING " + autoIncrColumn
+				rows, err := ch.pgConn.Query(ctx, returningSQL, convertedArgs...)
 				if err != nil {
 					errorCode, errorMsg := ch.handler.errorMapper.MapError(err)
 					return nil, mysql.NewError(errorCode, errorMsg)
 				}
-				rowsAffected = cmdTag.RowsAffected()
-			} else {
 				defer rows.Close()
 				// Get the returned ID
 				if rows.Next() {
@@ -474,6 +501,14 @@ func (ch *ConnectionHandler) HandleStmtExecute(data interface{}, query string, a
 					}
 				}
 				rowsAffected = 1 // INSERT with RETURNING always affects 1 row if successful
+			} else {
+				// Table doesn't have AUTO_INCREMENT or already has RETURNING, just execute
+				cmdTag, err := ch.pgConn.Exec(ctx, stmt.SQL, convertedArgs...)
+				if err != nil {
+					errorCode, errorMsg := ch.handler.errorMapper.MapError(err)
+					return nil, mysql.NewError(errorCode, errorMsg)
+				}
+				rowsAffected = cmdTag.RowsAffected()
 			}
 		} else {
 			// Execute non-INSERT DML statements normally
@@ -849,4 +884,154 @@ func (ch *ConnectionHandler) handleUseCommand(ctx context.Context, query string)
 	}
 
 	return result, nil
+}
+
+// extractInsertTableName extracts the table name from an INSERT statement
+func extractInsertTableName(sql string) string {
+	upper := strings.ToUpper(sql)
+	idx := strings.Index(upper, "INSERT INTO")
+	if idx == -1 {
+		return ""
+	}
+
+	// Skip "INSERT INTO "
+	start := idx + 12
+	sql = strings.TrimSpace(sql[start:])
+
+	// Remove quotes if present
+	sql = strings.Trim(sql, "`\"")
+
+	// Get the first word (table name)
+	parts := strings.Fields(sql)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Trim(parts[0], "`\"")
+}
+
+// extractCreateTableName extracts the table name from a CREATE TABLE statement
+func extractCreateTableName(sql string) string {
+	upper := strings.ToUpper(sql)
+	idx := strings.Index(upper, "CREATE TABLE")
+	if idx == -1 {
+		return ""
+	}
+
+	// Skip "CREATE TABLE "
+	start := idx + 12
+	sql = strings.TrimSpace(sql[start:])
+
+	// Handle "IF NOT EXISTS" clause
+	if strings.HasPrefix(strings.ToUpper(sql), "IF NOT EXISTS") {
+		sql = strings.TrimSpace(sql[13:])
+	}
+
+	// Remove quotes if present
+	sql = strings.Trim(sql, "`\"")
+
+	// Get the first word (table name)
+	parts := strings.Fields(sql)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Trim(parts[0], "`\"")
+}
+
+// extractAutoIncrementColumn extracts the column name that has AUTO_INCREMENT from a CREATE TABLE statement
+func extractAutoIncrementColumn(sql string) string {
+	upper := strings.ToUpper(sql)
+
+	// Check if there's an AUTO_INCREMENT keyword
+	if !strings.Contains(upper, "AUTO_INCREMENT") {
+		return ""
+	}
+
+	// Find the opening parenthesis for column definitions
+	openParen := strings.Index(sql, "(")
+	if openParen == -1 {
+		return ""
+	}
+
+	// Get the column definitions part
+	remaining := sql[openParen+1:]
+
+	// Split by comma or newline to get individual column definitions
+	// Handle both single-line and multi-line CREATE TABLE statements
+	columnDefs := strings.FieldsFunc(remaining, func(r rune) bool {
+		return r == ',' || r == '\n'
+	})
+
+	for _, colDef := range columnDefs {
+		colDef = strings.TrimSpace(colDef)
+		upperColDef := strings.ToUpper(colDef)
+
+		if strings.Contains(upperColDef, "AUTO_INCREMENT") {
+			// Extract column name from the beginning
+			colDef = strings.TrimLeft(colDef, " \t`\"")
+
+			// Get the first word (column name)
+			parts := strings.Fields(colDef)
+			if len(parts) > 0 {
+				colName := strings.Trim(parts[0], "`\",")
+				return colName
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractAlterTableName extracts the table name from an ALTER TABLE statement
+func extractAlterTableName(sql string) string {
+	upper := strings.ToUpper(sql)
+	idx := strings.Index(upper, "ALTER TABLE")
+	if idx == -1 {
+		return ""
+	}
+
+	// Skip "ALTER TABLE "
+	start := idx + 11
+	sql = strings.TrimSpace(sql[start:])
+
+	// Remove quotes if present
+	sql = strings.Trim(sql, "`\"")
+
+	// Get the first word (table name)
+	parts := strings.Fields(sql)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Trim(parts[0], "`\"")
+}
+
+// extractDropTableName extracts the table name from a DROP TABLE statement
+func extractDropTableName(sql string) string {
+	upper := strings.ToUpper(sql)
+	idx := strings.Index(upper, "DROP TABLE")
+	if idx == -1 {
+		return ""
+	}
+
+	// Skip "DROP TABLE "
+	start := idx + 10
+	sql = strings.TrimSpace(sql[start:])
+
+	// Handle "IF EXISTS" clause
+	if strings.HasPrefix(strings.ToUpper(sql), "IF EXISTS") {
+		sql = strings.TrimSpace(sql[9:])
+	}
+
+	// Remove quotes if present
+	sql = strings.Trim(sql, "`\"")
+
+	// Get the first word (table name)
+	parts := strings.Fields(sql)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Trim(parts[0], "`\"")
 }

@@ -14,6 +14,7 @@ import (
 	"aproxy/internal/pool"
 	"aproxy/pkg/observability"
 	my "aproxy/pkg/protocol/mysql"
+	"aproxy/pkg/schema"
 	"aproxy/pkg/session"
 	"aproxy/pkg/sqlrewrite"
 	"github.com/go-mysql-org/go-mysql/server"
@@ -90,6 +91,15 @@ func main() {
 		logger.Fatal("Failed to ping PostgreSQL", zap.Error(err))
 	}
 	logger.Info("PostgreSQL connection verified")
+
+	// Initialize global schema cache
+	if cfg.SchemaCache.Enabled {
+		schema.InitGlobalCache(cfg.SchemaCache.TTL)
+		logger.Info("Global schema cache initialized",
+			zap.Duration("ttl", cfg.SchemaCache.TTL),
+			zap.Int("max_entries", cfg.SchemaCache.MaxEntries),
+		)
+	}
 
 	sessionMgr := session.NewManager()
 	rewriter := sqlrewrite.NewRewriter(cfg.SQLRewrite.Enabled)

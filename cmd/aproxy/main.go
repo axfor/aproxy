@@ -94,7 +94,7 @@ func main() {
 	sessionMgr := session.NewManager()
 	rewriter := sqlrewrite.NewRewriter(cfg.SQLRewrite.Enabled)
 
-	handler := my.NewHandler(pgPool, sessionMgr, rewriter, metrics, logger)
+	handler := my.NewHandler(pgPool, sessionMgr, rewriter, metrics, logger, cfg.SQLRewrite.DebugSQL)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 

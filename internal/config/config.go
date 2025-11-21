@@ -54,6 +54,7 @@ type SecurityConfig struct {
 type SQLRewriteConfig struct {
 	Enabled     bool   `yaml:"enabled"`
 	CustomRules string `yaml:"custom_rules"`
+	DebugSQL    bool   `yaml:"debug_sql"` // Enable SQL rewrite debugging (prints original and rewritten SQL)
 }
 
 type ObservabilityConfig struct {
@@ -104,6 +105,7 @@ func DefaultConfig() *Config {
 		SQLRewrite: SQLRewriteConfig{
 			Enabled:     true,
 			CustomRules: "",
+			DebugSQL:    false,
 		},
 		Observability: ObservabilityConfig{
 			MetricsPort:      9090,

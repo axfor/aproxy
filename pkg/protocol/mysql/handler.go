@@ -28,6 +28,7 @@ type Handler struct {
 	showEmulator *mapper.ShowEmulator
 	metrics      *observability.Metrics
 	logger       *observability.Logger
+	debugSQL     bool
 }
 
 func NewHandler(
@@ -36,6 +37,7 @@ func NewHandler(
 	rewriter *sqlrewrite.Rewriter,
 	metrics *observability.Metrics,
 	logger *observability.Logger,
+	debugSQL bool,
 ) *Handler {
 	return &Handler{
 		pgPool:       pgPool,
@@ -46,6 +48,7 @@ func NewHandler(
 		showEmulator: mapper.NewShowEmulator(),
 		metrics:      metrics,
 		logger:       logger,
+		debugSQL:     debugSQL,
 	}
 }
 
@@ -149,11 +152,13 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 		return nil, err
 	}
 
-	// DEBUG: Print SQL rewrite for debugging failed queries
-	if query != rewrittenSQL {
-		ch.handler.logger.Info("SQL Rewritten",
-			zap.String("original", query),
-			zap.String("rewritten", rewrittenSQL))
+	// Debug SQL logging if enabled
+	if ch.handler.debugSQL {
+		wasRewritten := query != rewrittenSQL
+		ch.handler.logger.Info("SQL Debug",
+			zap.String("mysql", query),
+			zap.String("pg", rewrittenSQL),
+			zap.Bool("rewritten", wasRewritten))
 	}
 
 	// Check if this is a DDL statement (CREATE, DROP, ALTER, etc.) or DML with no result set

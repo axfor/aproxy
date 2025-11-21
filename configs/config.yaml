@@ -33,6 +33,7 @@ security:
 sql_rewrite:
   enabled: true
   custom_rules: ""
+  debug_sql: false # Enable to log all SQL queries (original MySQL and converted PostgreSQL)
 
 observability:
   metrics_port: 9090

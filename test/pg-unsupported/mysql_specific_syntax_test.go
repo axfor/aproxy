@@ -236,34 +236,6 @@ func TestMySQLSpecific_IGNORE_INDEX(t *testing.T) {
 	}
 }
 
-// TestMySQLSpecific_LOCK_IN_SHARE_MODE tests SELECT ... LOCK IN SHARE MODE
-// PG Alternative: SELECT ... FOR SHARE
-// NOTE: This is now supported via string post-processing (LOCK IN SHARE MODE -> FOR SHARE)
-func TestMySQLSpecific_LOCK_IN_SHARE_MODE(t *testing.T) {
-	// Remove skip - LOCK IN SHARE MODE is now converted to FOR SHARE
-	// t.Skip("LOCK IN SHARE MODE syntax different in PostgreSQL - use FOR SHARE")
-
-	db, err := sql.Open("mysql", proxyDSN)
-	require.NoError(t, err)
-	defer db.Close()
-
-	db.Exec("DROP TABLE IF EXISTS test_lock")
-	_, err = db.Exec("CREATE TABLE test_lock (id INT PRIMARY KEY, val INT)")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO test_lock VALUES (1, 100)")
-	require.NoError(t, err)
-	defer db.Exec("DROP TABLE IF EXISTS test_lock")
-
-	tx, err := db.Begin()
-	require.NoError(t, err)
-	defer tx.Rollback()
-
-	var val int
-	err = tx.QueryRow("SELECT val FROM test_lock WHERE id = 1 LOCK IN SHARE MODE").Scan(&val)
-	assert.NoError(t, err)
-	assert.Equal(t, 100, val)
-}
-
 // TestMySQLSpecific_FOR_UPDATE_SKIP_LOCKED tests FOR UPDATE SKIP LOCKED
 // Available in PG 9.5+ but syntax might differ
 func TestMySQLSpecific_FOR_UPDATE_SKIP_LOCKED(t *testing.T) {

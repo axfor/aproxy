@@ -353,3 +353,72 @@ func TestLastInsertID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1501, count, "Should have 1501 total rows")
 }
+
+// TestYearType tests YEAR type conversion
+// MySQL YEAR type is converted to PostgreSQL SMALLINT via AST rewriting
+func TestYearType(t *testing.T) {
+	db, err := sql.Open("mysql", "root@tcp(localhost:3306)/test")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, _ = db.Exec("DROP TABLE IF EXISTS test_year")
+	_, err = db.Exec(`CREATE TABLE test_year (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		birth_year YEAR
+	)`)
+	require.NoError(t, err)
+	defer db.Exec("DROP TABLE IF EXISTS test_year")
+
+	_, err = db.Exec("INSERT INTO test_year (birth_year) VALUES (2024)")
+	assert.NoError(t, err)
+
+	var year int
+	err = db.QueryRow("SELECT birth_year FROM test_year WHERE id = 1").Scan(&year)
+	assert.NoError(t, err)
+	assert.Equal(t, 2024, year)
+}
+
+// TestUnsignedType tests UNSIGNED modifier conversion
+// MySQL UNSIGNED types are converted to larger PostgreSQL types via AST rewriting
+// INT UNSIGNED -> BIGINT, BIGINT UNSIGNED -> NUMERIC
+func TestUnsignedType(t *testing.T) {
+	db, err := sql.Open("mysql", "root@tcp(localhost:3306)/test")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, _ = db.Exec("DROP TABLE IF EXISTS test_unsigned")
+	_, err = db.Exec(`CREATE TABLE test_unsigned (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		count INT UNSIGNED,
+		big_count BIGINT UNSIGNED
+	)`)
+	require.NoError(t, err)
+	defer db.Exec("DROP TABLE IF EXISTS test_unsigned")
+
+	_, err = db.Exec("INSERT INTO test_unsigned (count, big_count) VALUES (4294967295, 18446744073709551615)")
+	assert.NoError(t, err)
+}
+
+// TestLockInShareMode tests LOCK IN SHARE MODE conversion
+// MySQL's LOCK IN SHARE MODE is converted to PostgreSQL's FOR SHARE via string post-processing
+func TestLockInShareMode(t *testing.T) {
+	db, err := sql.Open("mysql", "root@tcp(localhost:3306)/test")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, _ = db.Exec("DROP TABLE IF EXISTS test_lock")
+	_, err = db.Exec("CREATE TABLE test_lock (id INT PRIMARY KEY, val INT)")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO test_lock VALUES (1, 100)")
+	require.NoError(t, err)
+	defer db.Exec("DROP TABLE IF EXISTS test_lock")
+
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	var val int
+	err = tx.QueryRow("SELECT val FROM test_lock WHERE id = 1 LOCK IN SHARE MODE").Scan(&val)
+	assert.NoError(t, err)
+	assert.Equal(t, 100, val)
+}

@@ -28,8 +28,6 @@
 **测试用例:**
 - `TestMySQLSpecific_ENUM` - ENUM 类型
 - `TestMySQLSpecific_SET` - SET 类型
-- `TestMySQLSpecific_YEAR` - YEAR 类型
-- `TestMySQLSpecific_UNSIGNED` - UNSIGNED 修饰符
 - `TestMySQLSpecific_TINYINT1_AsBoolean` - TINYINT(1) 作为布尔值
 - `TestMySQLSpecific_MEDIUMINT` - MEDIUMINT 类型
 - `TestMySQLSpecific_DisplayWidth` - 整数显示宽度
@@ -62,7 +60,6 @@
 - `TestMySQLSpecific_FORCE_INDEX` - 强制使用索引
 - `TestMySQLSpecific_USE_INDEX` - 建议使用索引
 - `TestMySQLSpecific_IGNORE_INDEX` - 忽略索引
-- `TestMySQLSpecific_LOCK_IN_SHARE_MODE` - 共享锁语法
 - `TestMySQLSpecific_FOR_UPDATE_SKIP_LOCKED` - 跳过锁定行
 - `TestMySQLSpecific_INSERT_DELAYED` - 延迟插入
 - `TestMySQLSpecific_PARTITION_Syntax` - 分区表语法

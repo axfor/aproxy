@@ -64,58 +64,6 @@ func TestMySQLSpecific_SET(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestMySQLSpecific_YEAR tests YEAR type which PG doesn't support
-// PG Alternative: SMALLINT or DATE
-// NOTE: This is now supported via AST conversion (YEAR -> SMALLINT)
-func TestMySQLSpecific_YEAR(t *testing.T) {
-	// Remove skip - YEAR is now supported via AST conversion
-	// t.Skip("YEAR type not supported by PostgreSQL - use SMALLINT or DATE instead")
-
-	db, err := sql.Open("mysql", proxyDSN)
-	require.NoError(t, err)
-	defer db.Close()
-
-	db.Exec("DROP TABLE IF EXISTS test_year")
-	_, err = db.Exec(`CREATE TABLE test_year (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		birth_year YEAR
-	)`)
-	require.NoError(t, err)
-	defer db.Exec("DROP TABLE IF EXISTS test_year")
-
-	_, err = db.Exec("INSERT INTO test_year (birth_year) VALUES (2024)")
-	assert.NoError(t, err)
-
-	var year int
-	err = db.QueryRow("SELECT birth_year FROM test_year WHERE id = 1").Scan(&year)
-	assert.NoError(t, err)
-	assert.Equal(t, 2024, year)
-}
-
-// TestMySQLSpecific_UNSIGNED tests UNSIGNED modifier which PG doesn't support
-// PG Alternative: Use larger type or CHECK constraint
-// NOTE: This is now supported via AST conversion (UNSIGNED -> larger type)
-func TestMySQLSpecific_UNSIGNED(t *testing.T) {
-	// Remove skip - UNSIGNED is now supported via AST conversion
-	// t.Skip("UNSIGNED modifier not supported by PostgreSQL - use CHECK constraint instead")
-
-	db, err := sql.Open("mysql", proxyDSN)
-	require.NoError(t, err)
-	defer db.Close()
-
-	db.Exec("DROP TABLE IF EXISTS test_unsigned")
-	_, err = db.Exec(`CREATE TABLE test_unsigned (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		count INT UNSIGNED,
-		big_count BIGINT UNSIGNED
-	)`)
-	require.NoError(t, err)
-	defer db.Exec("DROP TABLE IF EXISTS test_unsigned")
-
-	_, err = db.Exec("INSERT INTO test_unsigned (count, big_count) VALUES (4294967295, 18446744073709551615)")
-	assert.NoError(t, err)
-}
-
 // TestMySQLSpecific_TINYINT1_AsBoolean tests TINYINT(1) as boolean
 // PG has proper BOOLEAN type
 func TestMySQLSpecific_TINYINT1_AsBoolean(t *testing.T) {

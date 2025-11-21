@@ -129,51 +129,55 @@ MySQL Client Receives Response
 
 | Category | Support | Test Coverage | Status |
 |----------|---------|---------------|--------|
-| **SQL Syntax** | 60+ patterns | 69 test cases (100% pass) | ✅ Production Ready |
+| **SQL Syntax** | 40+ patterns | 50 test cases (100% pass) | ✅ Production Ready |
 | **MySQL Protocol Commands** | 8 core commands | Integration tested | ✅ Fully Compatible |
-| **Data Types** | 6 categories, 31 types | All types tested | ✅ Auto Conversion |
-| **Functions** | 5 categories, 29 functions | All functions tested | ✅ Auto Mapping |
-| **Unsupported Features** | ~30 MySQL-specific features | Documented | ⚠️ See docs |
+| **Data Types** | 6 categories, 20+ types | All types tested | ✅ Auto Conversion (78% full support) |
+| **Functions** | 5 categories, 30+ functions | All functions tested | ✅ Auto Mapping (71% support) |
+| **Unsupported Features** | 26 MySQL-specific features | Documented with alternatives | ⚠️ See [COMPATIBILITY.md](docs/COMPATIBILITY.md) |
 
 **Overall Compatibility**: Covers **90%+ common MySQL OLTP scenarios**, suitable for most OLTP application migrations.
 
 <details>
 <summary><b>📈 Detailed Statistics</b></summary>
 
-### ✅ Supported SQL Scenarios (60+ patterns)
+### ✅ Supported SQL Scenarios (40+ patterns)
 
-- **Basic DML**: SELECT, INSERT, UPDATE, DELETE, REPLACE INTO (5 types)
-- **DDL Operations**: CREATE/DROP TABLE, CREATE/DROP INDEX, ALTER TABLE (5 types)
+- **Basic DML**: SELECT, INSERT, UPDATE, DELETE (4 types)
+- **DDL Operations**: CREATE/DROP TABLE, CREATE/DROP INDEX, ALTER TABLE, TRUNCATE (6 types)
 - **Transaction Control**: BEGIN, COMMIT, ROLLBACK, AUTOCOMMIT (4 types)
-- **Query Features**: JOIN, subqueries, GROUP BY, ORDER BY, LIMIT, DISTINCT, UNION (7 types)
-- **Data Types**: Integer (10 types), Float (3 types), String (7 types), Binary (4 types), DateTime (4 types), Special (3 types) = 31 types
-- **Functions**: Date/Time (4), String (8), Math (7), Aggregate (6), Conditional (4) = 29 functions
-- **Others**: Prepared statements, batch operations, NULL handling, index constraints (4+ types)
+- **Query Features**: JOIN (4 types), subqueries, GROUP BY, HAVING, ORDER BY, LIMIT, DISTINCT, UNION (8+ types)
+- **Data Types**: Integer (10 types), Float (3 types), String (6 types), Binary (4 types), DateTime (4 types), Special (3 types) = 30+ types
+- **Functions**: Date/Time (4), String (8), Math (8), Aggregate (6), Conditional (4) = 30+ functions
+- **Others**: Prepared statements, batch operations, NULL handling, index constraints, auto-detection of unsupported features (5+ types)
 
-**Subtotal**: ~60 SQL syntax patterns and operations
+**Subtotal**: ~40 SQL syntax patterns and operations (with automatic detection of 26 unsupported features)
 
-### 🧪 Test Coverage (69 test cases)
+### 🧪 Test Coverage (50 passing + 26 documented unsupported)
 
-- **Basic Functionality Tests**: 46 cases
-  - Table operations, queries, transactions, data types, functions, JOINs, subqueries, etc.
-- **Business Scenario Tests**: 21 cases
-  - Student management system scenarios, concurrent transactions, complex queries, etc.
-- **Compatibility Tests**: 2 cases
-  - MySQL protocol compatibility verification
+- **Integration Tests (Passing)**: 50 cases
+  - **basic** (23 tests): Table operations, queries, transactions, data types, functions
+  - **mysql_compat** (8 tests): MySQL protocol compatibility verification
+  - **mysql_specific** (13 tests): FULLTEXT search, LastInsertID, MATCH AGAINST, etc.
+  - **student** (6 tests): Business scenarios, concurrent transactions, complex queries
 
-**Test Pass Rate**: 100% (69/69 passed)
+- **Unsupported Features (Documented)**: 26 cases
+  - **mysql_specific_syntax** (10 tests): DELETE LIMIT, FORCE INDEX, PARTITION, etc.
+  - **mysql_specific_functions** (12 tests): DATE_FORMAT, FOUND_ROWS, GET_LOCK, etc.
+  - **mysql_specific_types** (4 tests): ENUM, SET, SPATIAL types, combined types
 
-### ⚠️ Unsupported MySQL Features (~30 features)
+**Test Pass Rate**: 100% (50/50 supported features passed)
+**Coverage**: 90%+ of common OLTP scenarios
 
-- **Storage Engines**: MyISAM/InnoDB features, FULLTEXT, SPATIAL (4 categories)
-- **Replication**: Binary Log, GTID, Master-Slave replication (3 categories)
-- **Data Types**: SET (complex type, limited support for ENUM via VARCHAR conversion)
-- **Procedural Language**: Stored procedures, triggers, Event Scheduler (3 categories)
-- **System Variables**: User variables (@variables), system variables (2 categories)
-- **Special Functions**: DATE_FORMAT, FOUND_ROWS, GET_LOCK, etc. (6+ functions)
-- **Others**: LOAD DATA, LOCK TABLES, XA transactions (8+ types)
+### ⚠️ Unsupported MySQL Features (26 documented)
 
-**Detailed Documentation**: See [PG_UNSUPPORTED_FEATURES.md](docs/PG_UNSUPPORTED_FEATURES.md)
+- **Syntax** (10 features): DELETE/UPDATE LIMIT, STRAIGHT_JOIN, FORCE/USE/IGNORE INDEX, INSERT DELAYED, PARTITION syntax, VALUES() in UPDATE
+- **Functions** (12 features): FOUND_ROWS(), GET_LOCK(), DATE_FORMAT(), STR_TO_DATE(), TIMESTAMPDIFF(), FORMAT(), ENCRYPT(), PASSWORD(), INET_ATON/NTOA(), LOAD_FILE()
+- **Data Types** (4 features): ENUM (partial support), SET, GEOMETRY/SPATIAL types, combined type scenarios
+
+**Key Benefits**:
+- ✅ **Automatic Detection**: All 26 unsupported features are automatically detected and logged with actionable suggestions
+- ✅ **Detailed Documentation**: See [COMPATIBILITY.md](docs/COMPATIBILITY.md) for complete compatibility matrix
+- ✅ **Migration Guide**: Each unsupported feature includes PostgreSQL alternative recommendations
 
 ### 🎯 Use Cases
 

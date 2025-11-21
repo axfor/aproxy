@@ -238,6 +238,10 @@ func (g *PGGenerator) PostProcess(sql string) string {
 	// MySQL: LAST_INSERT_ID() → PostgreSQL: lastval()
 	sql = strings.ReplaceAll(sql, "LAST_INSERT_ID()", "lastval()")
 
+	// Convert MySQL GROUP_CONCAT to PostgreSQL string_agg
+	// MySQL: GROUP_CONCAT(col SEPARATOR 'sep') → PostgreSQL: string_agg(col, 'sep')
+	sql = g.convertGroupConcat(sql)
+
 	// Convert MySQL's || string concatenation to PostgreSQL format
 	// Note: This is already handled at AST level, this is just a backup
 
@@ -322,6 +326,82 @@ func (g *PGGenerator) convertLimitSyntax(sql string) string {
 
 		// Continue searching from after the replacement
 		searchPos = limitIdx + len(newLimit)
+	}
+
+	return result
+}
+
+// convertGroupConcat converts MySQL GROUP_CONCAT to PostgreSQL string_agg
+// MySQL: GROUP_CONCAT(col SEPARATOR 'sep') → PostgreSQL: string_agg(col, 'sep')
+// MySQL: GROUP_CONCAT(col) → PostgreSQL: string_agg(col, ',')
+func (g *PGGenerator) convertGroupConcat(sql string) string {
+	result := sql
+	searchPos := 0
+
+	for {
+		upperPart := strings.ToUpper(result[searchPos:])
+		groupConcatIdx := strings.Index(upperPart, "GROUP_CONCAT")
+		if groupConcatIdx == -1 {
+			break
+		}
+
+		groupConcatIdx = searchPos + groupConcatIdx
+
+		// Find opening parenthesis
+		i := groupConcatIdx + 12 // len("GROUP_CONCAT")
+		for i < len(result) && (result[i] == ' ' || result[i] == '\t' || result[i] == '\n') {
+			i++
+		}
+
+		if i >= len(result) || result[i] != '(' {
+			searchPos = groupConcatIdx + 12
+			continue
+		}
+
+		openParen := i
+		i++
+
+		// Find matching closing parenthesis, handling nested parentheses
+		parenCount := 1
+		for i < len(result) && parenCount > 0 {
+			if result[i] == '(' {
+				parenCount++
+			} else if result[i] == ')' {
+				parenCount--
+			}
+			i++
+		}
+
+		if parenCount != 0 {
+			// Unmatched parentheses
+			searchPos = groupConcatIdx + 12
+			continue
+		}
+
+		closeParen := i - 1
+		content := result[openParen+1 : closeParen]
+
+		// Check if SEPARATOR is present
+		upperContent := strings.ToUpper(content)
+		separatorIdx := strings.Index(upperContent, " SEPARATOR ")
+
+		var newFunc string
+		if separatorIdx != -1 {
+			// Extract column and separator
+			column := strings.TrimSpace(content[:separatorIdx])
+			separator := strings.TrimSpace(content[separatorIdx+11:]) // len(" SEPARATOR ") = 11
+			newFunc = "string_agg(" + column + ", " + separator + ")"
+		} else {
+			// No SEPARATOR specified, use default comma
+			column := strings.TrimSpace(content)
+			newFunc = "string_agg(" + column + ", ',')"
+		}
+
+		// Replace GROUP_CONCAT(...) with string_agg(...)
+		result = result[:groupConcatIdx] + newFunc + result[closeParen+1:]
+
+		// Continue searching from after the replacement
+		searchPos = groupConcatIdx + len(newFunc)
 	}
 
 	return result

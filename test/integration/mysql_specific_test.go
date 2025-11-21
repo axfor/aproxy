@@ -447,3 +447,28 @@ func TestForUpdateSkipLocked(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 100, val)
 }
+
+// TestGroupConcat tests GROUP_CONCAT with SEPARATOR conversion
+// MySQL: GROUP_CONCAT(col SEPARATOR 'sep') → PostgreSQL: string_agg(col, 'sep')
+func TestGroupConcat(t *testing.T) {
+	db, err := sql.Open("mysql", "root@tcp(localhost:3306)/test")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, _ = db.Exec("DROP TABLE IF EXISTS test_group_concat")
+	_, err = db.Exec("CREATE TABLE test_group_concat (id INT, name VARCHAR(50))")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO test_group_concat VALUES (1, 'Alice'), (1, 'Bob'), (2, 'Charlie')")
+	require.NoError(t, err)
+	defer db.Exec("DROP TABLE IF EXISTS test_group_concat")
+
+	// MySQL: GROUP_CONCAT with SEPARATOR
+	// Converted to PostgreSQL: string_agg(name, '|')
+	var result string
+	err = db.QueryRow("SELECT GROUP_CONCAT(name SEPARATOR '|') FROM test_group_concat WHERE id = 1").Scan(&result)
+	assert.NoError(t, err)
+	// Result should be "Alice|Bob" or "Bob|Alice" depending on order
+	assert.Contains(t, result, "Alice")
+	assert.Contains(t, result, "Bob")
+	assert.Contains(t, result, "|")
+}

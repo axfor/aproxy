@@ -92,7 +92,6 @@
 - `TestMySQLSpecific_DATE_FORMAT` - 日期格式化
 - `TestMySQLSpecific_STR_TO_DATE` - 字符串转日期
 - `TestMySQLSpecific_TIMESTAMPDIFF` - 时间差计算
-- `TestMySQLSpecific_GROUP_CONCAT_SEPARATOR` - 字符串聚合
 - `TestMySQLSpecific_ENCRYPT` - 加密函数
 - `TestMySQLSpecific_PASSWORD` - 密码哈希
 - `TestMySQLSpecific_FORMAT` - 数字格式化

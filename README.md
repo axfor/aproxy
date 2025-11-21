@@ -129,18 +129,18 @@ MySQL Client Receives Response
 
 | Category | Support | Test Coverage | Status |
 |----------|---------|---------------|--------|
-| **SQL Syntax** | 40+ patterns | 50 test cases (100% pass) | ✅ Production Ready |
+| **SQL Syntax** | 70+ patterns | 50 test cases (100% pass) | ✅ Production Ready |
 | **MySQL Protocol Commands** | 8 core commands | Integration tested | ✅ Fully Compatible |
 | **Data Types** | 6 categories, 20+ types | All types tested | ✅ Auto Conversion (78% full support) |
 | **Functions** | 5 categories, 30+ functions | All functions tested | ✅ Auto Mapping (71% support) |
-| **Unsupported Features** | 26 MySQL-specific features | Documented with alternatives | ⚠️ See [COMPATIBILITY.md](docs/COMPATIBILITY.md) |
+| **Unsupported Features** | 28 MySQL-specific features | Documented with alternatives | ⚠️ See [COMPATIBILITY.md](docs/COMPATIBILITY.md) |
 
 **Overall Compatibility**: Covers **90%+ common MySQL OLTP scenarios**, suitable for most OLTP application migrations.
 
 <details>
 <summary><b>📈 Detailed Statistics</b></summary>
 
-### ✅ Supported SQL Scenarios (40+ patterns)
+### ✅ Supported SQL Scenarios (70+ patterns)
 
 - **Basic DML**: SELECT, INSERT, UPDATE, DELETE (4 types)
 - **DDL Operations**: CREATE/DROP TABLE, CREATE/DROP INDEX, ALTER TABLE, TRUNCATE (6 types)
@@ -168,14 +168,15 @@ MySQL Client Receives Response
 **Test Pass Rate**: 100% (50/50 supported features passed)
 **Coverage**: 90%+ of common OLTP scenarios
 
-### ⚠️ Unsupported MySQL Features (26 documented)
+### ⚠️ Unsupported MySQL Features (28 patterns)
 
-- **Syntax** (10 features): DELETE/UPDATE LIMIT, STRAIGHT_JOIN, FORCE/USE/IGNORE INDEX, INSERT DELAYED, PARTITION syntax, VALUES() in UPDATE
-- **Functions** (12 features): FOUND_ROWS(), GET_LOCK(), DATE_FORMAT(), STR_TO_DATE(), TIMESTAMPDIFF(), FORMAT(), ENCRYPT(), PASSWORD(), INET_ATON/NTOA(), LOAD_FILE()
-- **Data Types** (4 features): ENUM (partial support), SET, GEOMETRY/SPATIAL types, combined type scenarios
+- **Syntax** (9 patterns): DELETE/UPDATE LIMIT, STRAIGHT_JOIN, FORCE/USE/IGNORE INDEX, INSERT DELAYED, PARTITION syntax, VALUES() in UPDATE
+- **Functions** (13 patterns): FOUND_ROWS(), GET_LOCK(), RELEASE_LOCK(), IS_FREE_LOCK(), DATE_FORMAT(), STR_TO_DATE(), TIMESTAMPDIFF(), FORMAT(), ENCRYPT(), PASSWORD(), INET_ATON(), INET_NTOA(), LOAD_FILE()
+- **Data Types** (2 patterns): SET, GEOMETRY/SPATIAL types
+- **Other** (4 patterns): LOAD DATA INFILE, LOCK/UNLOCK TABLES, User variables (@var)
 
 **Key Benefits**:
-- ✅ **Automatic Detection**: All 26 unsupported features are automatically detected and logged with actionable suggestions
+- ✅ **Automatic Detection**: All 28 unsupported features are automatically detected and logged with actionable suggestions
 - ✅ **Detailed Documentation**: See [COMPATIBILITY.md](docs/COMPATIBILITY.md) for complete compatibility matrix
 - ✅ **Migration Guide**: Each unsupported feature includes PostgreSQL alternative recommendations
 

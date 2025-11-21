@@ -152,21 +152,22 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 		for _, feature := range unsupportedFeatures {
 			switch feature.Severity {
 			case "error":
-				ch.handler.logger.Error("Unsupported MySQL feature detected",
+				ch.handler.logger.Error("Unsupported",
 					zap.String("feature", feature.Feature),
 					zap.String("category", feature.Category),
 					zap.String("sql", feature.SQL),
 					zap.String("suggestion", feature.Suggestion))
 			case "warning":
-				ch.handler.logger.Warn("MySQL feature may not work as expected",
+				ch.handler.logger.Warn("Unsupported",
 					zap.String("feature", feature.Feature),
 					zap.String("category", feature.Category),
 					zap.String("sql", feature.SQL),
 					zap.String("suggestion", feature.Suggestion))
 			case "info":
-				ch.handler.logger.Info("MySQL feature note",
+				ch.handler.logger.Info("Unsupported",
 					zap.String("feature", feature.Feature),
 					zap.String("category", feature.Category),
+					zap.String("sql", feature.SQL),
 					zap.String("suggestion", feature.Suggestion))
 			}
 		}

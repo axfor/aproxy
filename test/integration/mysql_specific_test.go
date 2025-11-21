@@ -472,3 +472,38 @@ func TestGroupConcat(t *testing.T) {
 	assert.Contains(t, result, "Bob")
 	assert.Contains(t, result, "|")
 }
+
+// TestTinyIntOne tests TINYINT(1) type conversion
+// MySQL TINYINT(1) is converted to PostgreSQL SMALLINT
+// Note: In the future, this could be converted to BOOLEAN, but currently uses SMALLINT
+func TestTinyIntOne(t *testing.T) {
+	db, err := sql.Open("mysql", "root@tcp(localhost:3306)/test")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, _ = db.Exec("DROP TABLE IF EXISTS test_tinyint1")
+	_, err = db.Exec(`CREATE TABLE test_tinyint1 (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		is_active TINYINT(1),
+		flag TINYINT(1)
+	)`)
+	require.NoError(t, err)
+	defer db.Exec("DROP TABLE IF EXISTS test_tinyint1")
+
+	// Insert test data with 0 and 1 values
+	_, err = db.Exec("INSERT INTO test_tinyint1 (is_active, flag) VALUES (1, 0), (0, 1)")
+	assert.NoError(t, err)
+
+	// Test reading TINYINT(1) values
+	var isActive, flag int
+	err = db.QueryRow("SELECT is_active, flag FROM test_tinyint1 WHERE id = 1").Scan(&isActive, &flag)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, isActive)
+	assert.Equal(t, 0, flag)
+
+	// Test second row
+	err = db.QueryRow("SELECT is_active, flag FROM test_tinyint1 WHERE id = 2").Scan(&isActive, &flag)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, isActive)
+	assert.Equal(t, 1, flag)
+}

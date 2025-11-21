@@ -242,6 +242,9 @@ func (g *PGGenerator) PostProcess(sql string) string {
 	// MySQL: GROUP_CONCAT(col SEPARATOR 'sep') → PostgreSQL: string_agg(col, 'sep')
 	sql = g.convertGroupConcat(sql)
 
+	// Remove unsupported type length parameters (e.g., SMALLINT(1) -> SMALLINT)
+	sql = g.removeUnsupportedTypeLengths(sql)
+
 	// Convert MySQL's || string concatenation to PostgreSQL format
 	// Note: This is already handled at AST level, this is just a backup
 
@@ -1296,6 +1299,80 @@ func replaceDoubleType(s string) string {
 		} else {
 			// Not a whole word, skip this occurrence
 			searchPos = idx + 6
+		}
+	}
+
+	return result
+}
+
+// removeUnsupportedTypeLengths removes length parameters from PostgreSQL integer types
+// PostgreSQL integer types (SMALLINT, INTEGER, BIGINT) don't support length parameters
+// MySQL: SMALLINT(1), INT(11) -> PostgreSQL: SMALLINT, INTEGER
+func (g *PGGenerator) removeUnsupportedTypeLengths(sql string) string {
+	result := sql
+
+	// List of integer types that don't support length in PostgreSQL
+	intTypes := []string{"SMALLINT", "INTEGER", "BIGINT", "INT", "SERIAL", "BIGSERIAL"}
+
+	for _, typeName := range intTypes {
+		searchPos := 0
+		for {
+			// Find next occurrence of type name
+			idx := strings.Index(strings.ToUpper(result[searchPos:]), typeName)
+			if idx == -1 {
+				break
+			}
+
+			idx = searchPos + idx
+
+			// Check if it's a whole word (not part of another word)
+			before := idx == 0 || !isAlphanumeric(result[idx-1])
+			after := idx+len(typeName) >= len(result) || !isAlphanumeric(result[idx+len(typeName)])
+
+			if !before || !after {
+				searchPos = idx + len(typeName)
+				continue
+			}
+
+			// Skip past type name and any whitespace
+			i := idx + len(typeName)
+			for i < len(result) && (result[i] == ' ' || result[i] == '\t' || result[i] == '\n') {
+				i++
+			}
+
+			// Check if there's a length parameter (opening parenthesis)
+			if i < len(result) && result[i] == '(' {
+				// Find the closing parenthesis
+				parenStart := i
+				i++
+
+				// Skip digits
+				for i < len(result) && (result[i] >= '0' && result[i] <= '9') {
+					i++
+				}
+
+				// Skip optional whitespace
+				for i < len(result) && (result[i] == ' ' || result[i] == '\t' || result[i] == '\n') {
+					i++
+				}
+
+				// Check if we found a closing parenthesis
+				if i < len(result) && result[i] == ')' {
+					parenEnd := i + 1
+
+					// Remove the length parameter: TYPE(n) -> TYPE
+					result = result[:parenStart] + result[parenEnd:]
+
+					// Continue searching from the position after the type name
+					searchPos = idx + len(typeName)
+				} else {
+					// Not a simple (n) pattern, skip
+					searchPos = idx + len(typeName)
+				}
+			} else {
+				// No length parameter, move on
+				searchPos = idx + len(typeName)
+			}
 		}
 	}
 

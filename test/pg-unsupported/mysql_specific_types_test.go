@@ -64,31 +64,6 @@ func TestMySQLSpecific_SET(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestMySQLSpecific_TINYINT1_AsBoolean tests TINYINT(1) as boolean
-// PG has proper BOOLEAN type
-func TestMySQLSpecific_TINYINT1_AsBoolean(t *testing.T) {
-	db, err := sql.Open("mysql", proxyDSN)
-	require.NoError(t, err)
-	defer db.Close()
-
-	db.Exec("DROP TABLE IF EXISTS test_bool")
-	_, err = db.Exec(`CREATE TABLE test_bool (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		is_active TINYINT(1)
-	)`)
-	require.NoError(t, err)
-	defer db.Exec("DROP TABLE IF EXISTS test_bool")
-
-	// Note: In PG this should be BOOLEAN type
-	_, err = db.Exec("INSERT INTO test_bool (is_active) VALUES (1), (0)")
-	assert.NoError(t, err)
-
-	var isActive int
-	err = db.QueryRow("SELECT is_active FROM test_bool WHERE id = 1").Scan(&isActive)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, isActive)
-}
-
 // TestMySQLSpecific_MEDIUMINT tests MEDIUMINT which doesn't exist in PG
 // PG Alternative: INT
 func TestMySQLSpecific_MEDIUMINT(t *testing.T) {

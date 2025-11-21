@@ -78,7 +78,10 @@
 5. **Protocol Mapper**：负责把 MySQL 协议命令（COM\_QUERY、COM\_STMT\_PREPARE、COM\_STMT\_EXECUTE 等）映射为 Postgres extended protocol（Parse/Bind/Execute）或简单 Query。负责参数类型转换、binary/text 编码转换、结果集列元数据转换。
 6. **Response Mapper**：将 PG 返回的 DataRow/CommandComplete/Error 转换为 MySQL 的 Resultset/OK/ERR/Warn packet，确保 affected\_rows、insert\_id、warnings 等行为正确。
 7. **Security & Policy Layer**：限流、黑白名单、SQL 白名单/黑名单、审计日志、异常行为检测。
-   
+8.  MySQL 客户端连接 (ConnectionHandler) 都有一个专用的 PostgreSQL 连接 (pgConn)是一对一的关系，不是连接池这样的设计正好满足你说的要求：client -> aproxy -> pg 是一一对应的。 让我检查一下连接的创建和管理
+9.  LAST_INSERT_ID这个实现需要注意 aproxy不需要缓存，直接从后端的pg链接取LAST_INSERT_ID
+
+
 
 # 架构实现要求  
 1. 我们的 aproxy 应该是基于抽象语法树AST转换，把 mysql 语法映射到 pg 语法，而不是硬编码规则（如正则等方式）转换，最好的是基于AST，用“SQL 抽象语法树（AST）+ 重写”的方式，而不是字符串替换

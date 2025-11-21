@@ -99,7 +99,6 @@
 - `TestMySQLSpecific_GROUP_CONCAT_SEPARATOR` - 字符串聚合
 - `TestMySQLSpecific_ENCRYPT` - 加密函数
 - `TestMySQLSpecific_PASSWORD` - 密码哈希
-- `TestMySQLSpecific_LAST_INSERT_ID` - 最后插入ID
 - `TestMySQLSpecific_FORMAT` - 数字格式化
 - `TestMySQLSpecific_INET_ATON` - IP 地址转数字
 - `TestMySQLSpecific_INET_NTOA` - 数字转 IP 地址

@@ -49,6 +49,7 @@
 | USE INDEX | ❌ 不支持 | 查询重写或 pg_hint_plan |
 | IGNORE INDEX | ❌ 不支持 | 查询重写 |
 | LOCK IN SHARE MODE | ✅ 已支持 | FOR SHARE (自动转换) |
+| FOR UPDATE SKIP LOCKED | ✅ 已支持 | 相同语法 (PG 9.5+) |
 | INSERT DELAYED | ❌ 已废弃 | 无 (MySQL 5.7+ 也已移除) |
 | PARTITION BY 语法 | ⚠️ 语法不同 | 声明式分区 (10+) |
 

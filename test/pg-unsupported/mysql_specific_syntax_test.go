@@ -236,27 +236,6 @@ func TestMySQLSpecific_IGNORE_INDEX(t *testing.T) {
 	}
 }
 
-// TestMySQLSpecific_FOR_UPDATE_SKIP_LOCKED tests FOR UPDATE SKIP LOCKED
-// Available in PG 9.5+ but syntax might differ
-func TestMySQLSpecific_FOR_UPDATE_SKIP_LOCKED(t *testing.T) {
-	db, err := sql.Open("mysql", proxyDSN)
-	require.NoError(t, err)
-	defer db.Close()
-
-	db.Exec("DROP TABLE IF EXISTS test_skip_locked")
-	db.Exec("CREATE TABLE test_skip_locked (id INT PRIMARY KEY, val INT)")
-	db.Exec("INSERT INTO test_skip_locked VALUES (1, 100)")
-	defer db.Exec("DROP TABLE IF EXISTS test_skip_locked")
-
-	tx, _ := db.Begin()
-	defer tx.Rollback()
-
-	// PG also supports this in 9.5+, but test to ensure compatibility
-	var val int
-	err = tx.QueryRow("SELECT val FROM test_skip_locked WHERE id = 1 FOR UPDATE SKIP LOCKED").Scan(&val)
-	assert.NoError(t, err)
-}
-
 // TestMySQLSpecific_INSERT_DELAYED tests INSERT DELAYED
 // Deprecated in MySQL 5.6, removed in 5.7
 func TestMySQLSpecific_INSERT_DELAYED(t *testing.T) {

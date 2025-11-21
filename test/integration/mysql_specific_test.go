@@ -422,3 +422,28 @@ func TestLockInShareMode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 100, val)
 }
+
+// TestForUpdateSkipLocked tests FOR UPDATE SKIP LOCKED syntax
+// This syntax is natively supported by PostgreSQL 9.5+, no conversion needed
+func TestForUpdateSkipLocked(t *testing.T) {
+	db, err := sql.Open("mysql", "root@tcp(localhost:3306)/test")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, _ = db.Exec("DROP TABLE IF EXISTS test_skip_locked")
+	_, err = db.Exec("CREATE TABLE test_skip_locked (id INT PRIMARY KEY, val INT)")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO test_skip_locked VALUES (1, 100)")
+	require.NoError(t, err)
+	defer db.Exec("DROP TABLE IF EXISTS test_skip_locked")
+
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	// PostgreSQL supports this natively in 9.5+
+	var val int
+	err = tx.QueryRow("SELECT val FROM test_skip_locked WHERE id = 1 FOR UPDATE SKIP LOCKED").Scan(&val)
+	assert.NoError(t, err)
+	assert.Equal(t, 100, val)
+}

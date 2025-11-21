@@ -60,7 +60,6 @@
 - `TestMySQLSpecific_FORCE_INDEX` - 强制使用索引
 - `TestMySQLSpecific_USE_INDEX` - 建议使用索引
 - `TestMySQLSpecific_IGNORE_INDEX` - 忽略索引
-- `TestMySQLSpecific_FOR_UPDATE_SKIP_LOCKED` - 跳过锁定行
 - `TestMySQLSpecific_INSERT_DELAYED` - 延迟插入
 - `TestMySQLSpecific_PARTITION_Syntax` - 分区表语法
 

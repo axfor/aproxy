@@ -6,50 +6,50 @@ A high-performance MySQL protocol proxy that transparently translates MySQL clie
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        MySQL Clients                                 │
+│                        MySQL Clients                                │
 │  (Any MySQL client, ORM, or application - no code changes needed)   │
 └────────────────────────────┬────────────────────────────────────────┘
                              │ MySQL Protocol (3306)
                              │
-┌────────────────────────────▼────────────────────────────────────────┐
-│                         AProxy Layer                                 │
+┌────────────────────────────▼───────────────────────────────────────┐
+│                         AProxy Layer                               │
 │ ┌──────────────────────────────────────────────────────────────┐   │
 │ │  MySQL Protocol Handler (pkg/protocol/mysql)                 │   │
 │ │  - Handshake & Authentication                                │   │
 │ │  - COM_QUERY / COM_PREPARE / COM_STMT_EXECUTE                │   │
 │ │  - ResultSet Encoding (Field Packets)                        │   │
 │ └────────────────────┬─────────────────────────────────────────┘   │
-│                      │                                              │
+│                      │                                             │
 │ ┌────────────────────▼─────────────────────────────────────────┐   │
-│ │  SQL Rewrite Engine (pkg/sqlrewrite) - Hybrid AST + String  │   │
-│ │  ┌──────────────────────────────────────────────────────┐   │   │
-│ │  │ 1. SQL Parser: MySQL SQL → AST                       │   │   │
-│ │  └────────────────────┬─────────────────────────────────┘   │   │
-│ │  ┌────────────────────▼─────────────────────────────────┐   │   │
-│ │  │ 2. AST Visitor: Semantic transformations             │   │   │
-│ │  │    - Types: TINYINT→SMALLINT, DATETIME→TIMESTAMP     │   │   │
-│ │  │    - Functions: NOW()→CURRENT_TIMESTAMP, IFNULL()    │   │   │
-│ │  │    - Constraints: AUTO_INCREMENT→SERIAL, INDEX       │   │   │
-│ │  │    - Placeholders: ? → $1, $2, $3...                 │   │   │
-│ │  └────────────────────┬─────────────────────────────────┘   │   │
-│ │  ┌────────────────────▼─────────────────────────────────┐   │   │
-│ │  │ 3. PG Generator: AST → PostgreSQL SQL                │   │   │
-│ │  └────────────────────┬─────────────────────────────────┘   │   │
-│ │  ┌────────────────────▼─────────────────────────────────┐   │   │
-│ │  │ 4. Post-Process: Syntactic cleanup (String-level)    │   │   │
-│ │  │    - Quotes: `id` → "id"                             │   │   │
-│ │  │    - LIMIT: LIMIT n,m → LIMIT m OFFSET n             │   │   │
+│ │  SQL Rewrite Engine (pkg/sqlrewrite) - Hybrid AST + String   │   │
+│ │  ┌──────────────────────────────────────────────────────┐    │   │
+│ │  │ 1. SQL Parser: MySQL SQL → AST                       │    │   │
+│ │  └────────────────────┬─────────────────────────────────┘    │   │
+│ │  ┌────────────────────▼─────────────────────────────────┐    │   │
+│ │  │ 2. AST Visitor: Semantic transformations             │    │   │
+│ │  │    - Types: TINYINT→SMALLINT, DATETIME→TIMESTAMP     │    │   │
+│ │  │    - Functions: NOW()→CURRENT_TIMESTAMP, IFNULL()    │    │   │
+│ │  │    - Constraints: AUTO_INCREMENT→SERIAL, INDEX       │    │   │
+│ │  │    - Placeholders: ? → $1, $2, $3...                 │    │   │
+│ │  └────────────────────┬─────────────────────────────────┘    │   │
+│ │  ┌────────────────────▼─────────────────────────────────┐    │   │
+│ │  │ 3. PG Generator: AST → PostgreSQL SQL                │    │   │
+│ │  └────────────────────┬─────────────────────────────────┘    │   │
+│ │  ┌────────────────────▼─────────────────────────────────┐    │   │
+│ │  │ 4. Post-Process: Syntactic cleanup (String-level)    │    │   │
+│ │  │    - Quotes: `id` → "id"                             │    │   │
+│ │  │    - LIMIT: LIMIT n,m → LIMIT m OFFSET n             │    │   │
 │ │  │    - Keywords: CURRENT_TIMESTAMP() → CURRENT_TIMESTAMP│   │   │
-│ │  └──────────────────────────────────────────────────────┘   │   │
+│ │  └──────────────────────────────────────────────────────┘    │   │
 │ └────────────────────┬─────────────────────────────────────────┘   │
-│                      │                                              │
+│                      │                                             │
 │ ┌────────────────────▼─────────────────────────────────────────┐   │
 │ │  Type Mapper (pkg/mapper)                                    │   │
 │ │  - MySQL ↔ PostgreSQL data type conversion                   │   │
 │ │  - Error code mapping (PostgreSQL → MySQL Error Codes)       │   │
 │ │  - SHOW/DESCRIBE command emulation                           │   │
 │ └────────────────────┬─────────────────────────────────────────┘   │
-│                      │                                              │
+│                      │                                             │
 │ ┌────────────────────▼─────────────────────────────────────────┐   │
 │ │  Session Manager (pkg/session)                               │   │
 │ │  - Session state tracking                                    │   │
@@ -57,27 +57,27 @@ A high-performance MySQL protocol proxy that transparently translates MySQL clie
 │ │  - Prepared statement caching                                │   │
 │ │  - Session variable management                               │   │
 │ └────────────────────┬─────────────────────────────────────────┘   │
-│                      │                                              │
+│                      │                                             │
 │ ┌────────────────────▼─────────────────────────────────────────┐   │
-│ │  Schema Cache (pkg/schema) - Global Cache with Generics     │   │
-│ │  - AUTO_INCREMENT column detection (database.table key)     │   │
-│ │  - Generic sync.Map (zero type assertion overhead)          │   │
-│ │  - TTL-based expiration (5min default, configurable)        │   │
-│ │  - DDL auto-invalidation (CREATE/ALTER/DROP TABLE)          │   │
-│ │  - 99% query reduction in concurrent scenarios              │   │
+│ │  Schema Cache (pkg/schema) - Global Cache with Generics      │   │
+│ │  - AUTO_INCREMENT column detection (database.table key)      │   │
+│ │  - Generic sync.Map (zero type assertion overhead)           │   │
+│ │  - TTL-based expiration (5min default, configurable)         │   │
+│ │  - DDL auto-invalidation (CREATE/ALTER/DROP TABLE)           │   │
+│ │  - 99% query reduction in concurrent scenarios               │   │
 │ └────────────────────┬─────────────────────────────────────────┘   │
-│                      │                                              │
+│                      │                                             │
 │ ┌────────────────────▼─────────────────────────────────────────┐   │
 │ │  Connection Pool (internal/pool)                             │   │
 │ │  - pgx connection pool management                            │   │
 │ │  - Session affinity / pooled mode                            │   │
 │ │  - Health checks                                             │   │
 │ └────────────────────┬─────────────────────────────────────────┘   │
-└────────────────────────┼────────────────────────────────────────────┘
+└────────────────────────┼───────────────────────────────────────────┘
                          │ PostgreSQL Protocol (pgx)
                          │
 ┌────────────────────────▼────────────────────────────────────────────┐
-│                   PostgreSQL Database                                │
+│                   PostgreSQL Database                               │
 │  (Actual data storage and query execution)                          │
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -136,13 +136,13 @@ MySQL Client Receives Response
 
 ## 📊 Compatibility Overview
 
-| Category | Support | Test Coverage | Status |
-|----------|---------|---------------|--------|
-| **SQL Syntax** | 70+ patterns | 50 test cases (100% pass) | ✅ Production Ready |
-| **MySQL Protocol Commands** | 8 core commands | Integration tested | ✅ Fully Compatible |
-| **Data Types** | 6 categories, 20+ types | All types tested | ✅ Auto Conversion (78% full support) |
-| **Functions** | 5 categories, 30+ functions | All functions tested | ✅ Auto Mapping (71% support) |
-| **Unsupported Features** | 28 MySQL-specific features | Documented with alternatives | ⚠️ See [COMPATIBILITY.md](docs/COMPATIBILITY.md) |
+| Category                    | Support                     | Test Coverage                | Status                                          |
+| --------------------------- | --------------------------- | ---------------------------- | ----------------------------------------------- |
+| **SQL Syntax**              | 70+ patterns                | 50 test cases (100% pass)    | ✅ Production Ready                              |
+| **MySQL Protocol Commands** | 8 core commands             | Integration tested           | ✅ Fully Compatible                              |
+| **Data Types**              | 6 categories, 20+ types     | All types tested             | ✅ Auto Conversion (78% full support)            |
+| **Functions**               | 5 categories, 30+ functions | All functions tested         | ✅ Auto Mapping (71% support)                    |
+| **Unsupported Features**    | 28 MySQL-specific features  | Documented with alternatives | ⚠️ See [COMPATIBILITY.md](docs/COMPATIBILITY.md) |
 
 **Overall Compatibility**: Covers **90%+ common MySQL OLTP scenarios**, suitable for most OLTP application migrations.
 
@@ -342,17 +342,17 @@ For detailed analysis, see [AST_VS_STRING_CONVERSION.md](docs/AST_VS_STRING_CONV
 
 The proxy automatically handles the following MySQL to PostgreSQL conversions:
 
-| MySQL                                | PostgreSQL                             | Level |
-| ------------------------------------ | -------------------------------------- | ----- |
+| MySQL                                | PostgreSQL                             | Level  |
+| ------------------------------------ | -------------------------------------- | ------ |
 | ``` `identifier` ```                 | `"identifier"`                         | String |
-| `?` placeholders                     | `$1, $2, ...`                          | AST |
-| `AUTO_INCREMENT`                     | `SERIAL` / `BIGSERIAL`                 | AST |
-| `INSERT ... ON DUPLICATE KEY UPDATE` | `INSERT ... ON CONFLICT ... DO UPDATE` | AST |
-| `REPLACE INTO`                       | `INSERT ... ON CONFLICT ...`           | AST |
-| `NOW()`                              | `CURRENT_TIMESTAMP`                    | AST |
-| `IFNULL(a, b)`                       | `COALESCE(a, b)`                       | AST |
-| `IF(cond, a, b)`                     | `CASE WHEN cond THEN a ELSE b END`     | AST |
-| `GROUP_CONCAT()`                     | `STRING_AGG()`                         | AST |
+| `?` placeholders                     | `$1, $2, ...`                          | AST    |
+| `AUTO_INCREMENT`                     | `SERIAL` / `BIGSERIAL`                 | AST    |
+| `INSERT ... ON DUPLICATE KEY UPDATE` | `INSERT ... ON CONFLICT ... DO UPDATE` | AST    |
+| `REPLACE INTO`                       | `INSERT ... ON CONFLICT ...`           | AST    |
+| `NOW()`                              | `CURRENT_TIMESTAMP`                    | AST    |
+| `IFNULL(a, b)`                       | `COALESCE(a, b)`                       | AST    |
+| `IF(cond, a, b)`                     | `CASE WHEN cond THEN a ELSE b END`     | AST    |
+| `GROUP_CONCAT()`                     | `STRING_AGG()`                         | AST    |
 | `LAST_INSERT_ID()`                   | `lastval()`                            | String |
 | `LOCK IN SHARE MODE`                 | `FOR SHARE`                            | String |
 | `LIMIT n, m`                         | `LIMIT m OFFSET n`                     | String |
@@ -742,17 +742,17 @@ For a detailed list of limitations, see [DESIGN.md](docs/DESIGN.md)
 
 ## Configuration Options
 
-| Option                        | Description                | Default          |
-| ----------------------------- | -------------------------- | ---------------- |
-| `server.port`                 | MySQL listen port          | 3306             |
-| `server.max_connections`      | Max connections            | 1000             |
-| `postgres.connection_mode`    | Connection mode            | session_affinity |
-| `sql_rewrite.enabled`         | Enable SQL rewrite         | true             |
-| `schema_cache.enabled`        | Enable global schema cache | true             |
-| `schema_cache.ttl`            | Cache TTL                  | 5m               |
-| `schema_cache.max_entries`    | Max cache entries          | 100000           |
-| `schema_cache.invalidate_on_ddl` | Auto-invalidate on DDL  | true             |
-| `observability.log_level`     | Log level                  | info             |
+| Option                           | Description                | Default          |
+| -------------------------------- | -------------------------- | ---------------- |
+| `server.port`                    | MySQL listen port          | 3306             |
+| `server.max_connections`         | Max connections            | 1000             |
+| `postgres.connection_mode`       | Connection mode            | session_affinity |
+| `sql_rewrite.enabled`            | Enable SQL rewrite         | true             |
+| `schema_cache.enabled`           | Enable global schema cache | true             |
+| `schema_cache.ttl`               | Cache TTL                  | 5m               |
+| `schema_cache.max_entries`       | Max cache entries          | 100000           |
+| `schema_cache.invalidate_on_ddl` | Auto-invalidate on DDL     | true             |
+| `observability.log_level`        | Log level                  | info             |
 
 For complete configuration options, see [config.yaml](configs/config.yaml)
 

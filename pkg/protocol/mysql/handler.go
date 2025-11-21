@@ -3,7 +3,6 @@ package mysql
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"aproxy/internal/pool"
 	"aproxy/pkg/mapper"
 	"aproxy/pkg/observability"
+	"aproxy/pkg/schema"
 	"aproxy/pkg/session"
 	"aproxy/pkg/sqlrewrite"
 	"github.com/go-mysql-org/go-mysql/mysql"
@@ -250,16 +250,29 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 			}
 			rowsAffected = cmdTag.RowsAffected()
 
-			// If this is CREATE TABLE, check if it has AUTO_INCREMENT and mark the table
+			// Handle DDL statements: invalidate schema cache
 			if strings.HasPrefix(upperQuery, "CREATE TABLE") {
 				tableName := extractCreateTableName(query)
+
+				// Invalidate cache for the new table (it will be refreshed on first INSERT)
+				schema.GetGlobalCache().InvalidateTable(ch.session.Database, tableName)
+
+				// Also mark in session for backward compatibility
 				columnName := extractAutoIncrementColumn(query)
-
-				// DEBUG: Print to log
-				log.Printf("DEBUG CREATE TABLE: table=%s, autoIncrColumn=%s\n", tableName, columnName)
-
 				if tableName != "" && columnName != "" {
 					ch.session.MarkTableHasAutoIncrement(tableName, columnName)
+				}
+			} else if strings.HasPrefix(upperQuery, "ALTER TABLE") {
+				// ALTER TABLE may change AUTO_INCREMENT columns
+				tableName := extractAlterTableName(query)
+				if tableName != "" {
+					schema.GetGlobalCache().InvalidateTable(ch.session.Database, tableName)
+				}
+			} else if strings.HasPrefix(upperQuery, "DROP TABLE") {
+				// DROP TABLE removes the table
+				tableName := extractDropTableName(query)
+				if tableName != "" {
+					schema.GetGlobalCache().InvalidateTable(ch.session.Database, tableName)
 				}
 			}
 		}
@@ -968,4 +981,57 @@ func extractAutoIncrementColumn(sql string) string {
 	}
 
 	return ""
+}
+
+// extractAlterTableName extracts the table name from an ALTER TABLE statement
+func extractAlterTableName(sql string) string {
+	upper := strings.ToUpper(sql)
+	idx := strings.Index(upper, "ALTER TABLE")
+	if idx == -1 {
+		return ""
+	}
+
+	// Skip "ALTER TABLE "
+	start := idx + 11
+	sql = strings.TrimSpace(sql[start:])
+
+	// Remove quotes if present
+	sql = strings.Trim(sql, "`\"")
+
+	// Get the first word (table name)
+	parts := strings.Fields(sql)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Trim(parts[0], "`\"")
+}
+
+// extractDropTableName extracts the table name from a DROP TABLE statement
+func extractDropTableName(sql string) string {
+	upper := strings.ToUpper(sql)
+	idx := strings.Index(upper, "DROP TABLE")
+	if idx == -1 {
+		return ""
+	}
+
+	// Skip "DROP TABLE "
+	start := idx + 10
+	sql = strings.TrimSpace(sql[start:])
+
+	// Handle "IF EXISTS" clause
+	if strings.HasPrefix(strings.ToUpper(sql), "IF EXISTS") {
+		sql = strings.TrimSpace(sql[9:])
+	}
+
+	// Remove quotes if present
+	sql = strings.Trim(sql, "`\"")
+
+	// Get the first word (table name)
+	parts := strings.Fields(sql)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Trim(parts[0], "`\"")
 }

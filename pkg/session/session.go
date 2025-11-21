@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"aproxy/pkg/schema"
 )
 
 type Session struct {
@@ -319,26 +320,10 @@ func (s *Session) MarkTableHasAutoIncrement(tableName, columnName string) {
 }
 
 // GetAutoIncrementColumn returns the AUTO_INCREMENT column name for a table, or empty string if none
-// If the table info is not cached, it queries PostgreSQL system tables to discover it
+// Uses the global schema cache shared across all sessions for better performance
 func (s *Session) GetAutoIncrementColumn(tableName string) string {
-	s.mu.RLock()
-	col, checked := s.autoIncrementTables[tableName]
-	s.mu.RUnlock()
-
-	if checked {
-		// Already checked this table (col might be empty string if no auto-increment)
-		return col
-	}
-
-	// Not in cache, query PostgreSQL to discover the schema
-	col = s.queryAutoIncrementColumn(tableName)
-
-	// Cache the result (even if empty) to avoid repeated queries
-	s.mu.Lock()
-	s.autoIncrementTables[tableName] = col
-	s.mu.Unlock()
-
-	return col
+	// Use global cache with database.table format
+	return schema.GetGlobalCache().GetAutoIncrementColumn(s.pgConn, s.Database, tableName)
 }
 
 // queryAutoIncrementColumn queries PostgreSQL system tables to find auto-increment column

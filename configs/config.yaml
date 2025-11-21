@@ -3,8 +3,8 @@ server:
   port: 3306
   max_connections: 1000
   max_packet_size: 16777216 # 16MB
-  read_timeout: 30s
-  write_timeout: 30s
+  read_timeout: 90s
+  write_timeout: 90s
 
 postgres:
   host: "localhost"
@@ -12,7 +12,7 @@ postgres:
   database: "test"
   user: "bast"
   password: ""
-  max_pool_size: 100
+  max_pool_size: 200
   connection_mode: "session_affinity" # session_affinity, pooled, or hybrid
   ssl_mode: "disable" # disable, allow, prefer, require
 
@@ -43,3 +43,9 @@ observability:
   redact_parameters: true
   enable_tracing: false
   tracing_endpoint: "localhost:4318"
+
+schema_cache:
+  enabled: true
+  ttl: 5m # Cache TTL for table schema information
+  max_entries: 100000
+  invalidate_on_ddl: true # Automatically invalidate cache on CREATE/ALTER/DROP TABLE

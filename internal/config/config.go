@@ -15,6 +15,7 @@ type Config struct {
 	Security     SecurityConfig     `yaml:"security"`
 	SQLRewrite   SQLRewriteConfig   `yaml:"sql_rewrite"`
 	Observability ObservabilityConfig `yaml:"observability"`
+	SchemaCache  SchemaCacheConfig  `yaml:"schema_cache"`
 }
 
 type ServerConfig struct {
@@ -67,6 +68,13 @@ type ObservabilityConfig struct {
 	TracingEndpoint   string `yaml:"tracing_endpoint"`
 }
 
+type SchemaCacheConfig struct {
+	Enabled          bool          `yaml:"enabled"`
+	TTL              time.Duration `yaml:"ttl"`
+	MaxEntries       int           `yaml:"max_entries"`
+	InvalidateOnDDL  bool          `yaml:"invalidate_on_ddl"`
+}
+
 func DefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -115,6 +123,12 @@ func DefaultConfig() *Config {
 			RedactParameters: true,
 			EnableTracing:    false,
 			TracingEndpoint:  "localhost:4318",
+		},
+		SchemaCache: SchemaCacheConfig{
+			Enabled:         true,
+			TTL:             5 * time.Minute,
+			MaxEntries:      10000,
+			InvalidateOnDDL: true,
 		},
 	}
 }

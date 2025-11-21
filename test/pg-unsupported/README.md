@@ -20,17 +20,14 @@
 | SET | ❌ 不支持 | TEXT[] 数组或 bit string |
 | YEAR | ✅ 已支持 | SMALLINT (自动转换) |
 | UNSIGNED | ✅ 已支持 | 更大类型 (自动转换) |
-| TINYINT(1) | ⚠️ 语义不同 | BOOLEAN (推荐) |
-| MEDIUMINT | ⚠️ 映射到 INT | INT |
-| INT(11) 显示宽度 | ⚠️ 忽略 | INT (无显示宽度) |
+| TINYINT(1) | ✅ 已支持 | SMALLINT (自动转换) |
+| MEDIUMINT | ✅ 已支持 | INTEGER (自动转换) |
+| INT(11) 显示宽度 | ✅ 已支持 | INT (自动移除显示宽度) |
 | GEOMETRY, POINT | ❌ 不支持 | PostGIS 扩展 |
 
 **测试用例:**
 - `TestMySQLSpecific_ENUM` - ENUM 类型
 - `TestMySQLSpecific_SET` - SET 类型
-- `TestMySQLSpecific_TINYINT1_AsBoolean` - TINYINT(1) 作为布尔值
-- `TestMySQLSpecific_MEDIUMINT` - MEDIUMINT 类型
-- `TestMySQLSpecific_DisplayWidth` - 整数显示宽度
 - `TestMySQLSpecific_SpatialTypes` - 空间数据类型
 - `TestMySQLSpecific_DataTypes_Combined` - 混合类型
 

@@ -78,10 +78,10 @@
 | DATE_FORMAT() | ⚠️ 语法不同 | TO_CHAR() (格式字符串不同) |
 | STR_TO_DATE() | ⚠️ 语法不同 | TO_DATE() / TO_TIMESTAMP() |
 | TIMESTAMPDIFF() | ❌ 不支持 | EXTRACT(EPOCH FROM ...) |
-| GROUP_CONCAT() | ⚠️ 语法不同 | string_agg() |
+| GROUP_CONCAT() | ✅ 已支持 | string_agg() (自动转换) |
 | ENCRYPT() | ❌ 不支持 | pgcrypto 扩展 |
 | PASSWORD() | ❌ 已废弃 | 无 |
-| LAST_INSERT_ID() | ⚠️ 跨连接 | RETURNING 子句 (推荐) |
+| LAST_INSERT_ID() | ✅ 已支持 | Session state tracking |
 | FORMAT() | ⚠️ 语法不同 | TO_CHAR() |
 | INET_ATON() | ❌ 不支持 | inet 数据类型 |
 | INET_NTOA() | ❌ 不支持 | inet 数据类型 |

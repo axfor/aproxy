@@ -337,6 +337,7 @@ The proxy automatically handles the following MySQL to PostgreSQL conversions:
 | `IFNULL(a, b)`                       | `COALESCE(a, b)`                       | AST |
 | `IF(cond, a, b)`                     | `CASE WHEN cond THEN a ELSE b END`     | AST |
 | `GROUP_CONCAT()`                     | `STRING_AGG()`                         | AST |
+| `LAST_INSERT_ID()`                   | Session state tracking                 | Session |
 | `LOCK IN SHARE MODE`                 | `FOR SHARE`                            | String |
 | `LIMIT n, m`                         | `LIMIT m OFFSET n`                     | String |
 

@@ -234,6 +234,10 @@ func (g *PGGenerator) PostProcess(sql string) string {
 	// MySQL: LOCK IN SHARE MODE → PostgreSQL: FOR SHARE
 	sql = strings.ReplaceAll(sql, "LOCK IN SHARE MODE", "FOR SHARE")
 
+	// Convert MySQL LAST_INSERT_ID() to PostgreSQL lastval()
+	// MySQL: LAST_INSERT_ID() → PostgreSQL: lastval()
+	sql = strings.ReplaceAll(sql, "LAST_INSERT_ID()", "lastval()")
+
 	// Convert MySQL's || string concatenation to PostgreSQL format
 	// Note: This is already handled at AST level, this is just a backup
 

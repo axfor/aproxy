@@ -215,11 +215,6 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 
 		// Note: Additional DDL statements are no longer needed with AST rewriter
 
-		// Store last insert ID in session for LAST_INSERT_ID() function
-		if lastInsertID > 0 {
-			ch.session.SetLastInsertID(lastInsertID)
-		}
-
 		duration := time.Since(startTime).Seconds()
 		ch.handler.metrics.ObserveQueryDuration(duration)
 		ch.handler.logger.LogQuery(ch.session.ID, ch.session.User, ch.session.ClientAddr, query, duration, rowsAffected, nil)
@@ -228,30 +223,6 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 			Status:       0,
 			InsertId:     lastInsertID,
 			AffectedRows: uint64(rowsAffected),
-		}, nil
-	}
-
-	// Handle LAST_INSERT_ID() function for SELECT statements
-	if strings.Contains(upperQuery, "LAST_INSERT_ID()") {
-		// Return the stored last insert ID from session
-		lastID := ch.session.GetLastInsertID()
-
-		// Create a result set with the last insert ID using BuildSimpleResultset
-		names := []string{"LAST_INSERT_ID()"}
-		values := [][]interface{}{
-			{lastID},
-		}
-
-		resultset, err := mysql.BuildSimpleResultset(names, values, false)
-		if err != nil {
-			return nil, err
-		}
-
-		ch.handler.logger.LogQuery(ch.session.ID, ch.session.User, ch.session.ClientAddr, query, time.Since(startTime).Seconds(), 1, nil)
-
-		return &mysql.Result{
-			Status:    0,
-			Resultset: resultset,
 		}, nil
 	}
 
@@ -480,11 +451,6 @@ func (ch *ConnectionHandler) HandleStmtExecute(data interface{}, query string, a
 				return nil, mysql.NewError(errorCode, errorMsg)
 			}
 			rowsAffected = cmdTag.RowsAffected()
-		}
-
-		// Store last insert ID in session for LAST_INSERT_ID() function
-		if lastInsertID > 0 {
-			ch.session.SetLastInsertID(lastInsertID)
 		}
 
 		duration := time.Since(startTime).Seconds()

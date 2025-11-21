@@ -67,7 +67,7 @@
 
 | MySQL 函数 | 状态 | PostgreSQL 替代方案 |
 |-----------|------|-------------------|
-| MATCH() AGAINST() | ❌ 不支持 | to_tsvector() / to_tsquery() |
+| MATCH() AGAINST() | ✅ 已支持 | to_tsvector() / to_tsquery() (自动转换) |
 | FOUND_ROWS() | ❌ 不支持 | COUNT(*) OVER() 或单独查询 |
 | GET_LOCK() | ❌ 不支持 | pg_advisory_lock() |
 | RELEASE_LOCK() | ❌ 不支持 | pg_advisory_unlock() |
@@ -85,7 +85,6 @@
 | LOAD_FILE() | ❌ 安全风险 | 无 |
 
 **测试用例:**
-- `TestMySQLSpecific_MATCH_AGAINST` - 全文搜索
 - `TestMySQLSpecific_FOUND_ROWS` - 查询总行数
 - `TestMySQLSpecific_GET_LOCK` - 命名锁
 - `TestMySQLSpecific_IS_FREE_LOCK` - 检查锁状态

@@ -170,21 +170,36 @@ func TestMySQLSpecific_PASSWORD(t *testing.T) {
 
 // TestMySQLSpecific_LAST_INSERT_ID tests LAST_INSERT_ID() function
 // PG Alternative: RETURNING clause or currval()
+// NOTE: This is now supported via session state tracking
 func TestMySQLSpecific_LAST_INSERT_ID(t *testing.T) {
 	db, err := sql.Open("mysql", proxyDSN)
 	require.NoError(t, err)
 	defer db.Close()
 
 	db.Exec("DROP TABLE IF EXISTS test_last_id")
-	db.Exec("CREATE TABLE test_last_id (id INT AUTO_INCREMENT PRIMARY KEY, val INT)")
+	_, err = db.Exec("CREATE TABLE test_last_id (id INT AUTO_INCREMENT PRIMARY KEY, val INT)")
+	require.NoError(t, err)
 	defer db.Exec("DROP TABLE IF EXISTS test_last_id")
 
-	db.Exec("INSERT INTO test_last_id (val) VALUES (100)")
+	// Insert first row
+	_, err = db.Exec("INSERT INTO test_last_id (val) VALUES (100)")
+	require.NoError(t, err)
 
+	// Query LAST_INSERT_ID() - should return the ID of first insert
 	var lastID int64
 	err = db.QueryRow("SELECT LAST_INSERT_ID()").Scan(&lastID)
 	assert.NoError(t, err)
 	assert.Greater(t, lastID, int64(0))
+
+	// Insert second row
+	_, err = db.Exec("INSERT INTO test_last_id (val) VALUES (200)")
+	require.NoError(t, err)
+
+	// Query LAST_INSERT_ID() again - should return the ID of second insert
+	var lastID2 int64
+	err = db.QueryRow("SELECT LAST_INSERT_ID()").Scan(&lastID2)
+	assert.NoError(t, err)
+	assert.Equal(t, lastID+1, lastID2)
 }
 
 // TestMySQLSpecific_FORMAT tests FORMAT() function for number formatting

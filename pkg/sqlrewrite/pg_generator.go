@@ -245,6 +245,9 @@ func (g *PGGenerator) PostProcess(sql string) string {
 	// Remove unsupported type length parameters (e.g., SMALLINT(1) -> SMALLINT)
 	sql = g.removeUnsupportedTypeLengths(sql)
 
+	// Remove ZEROFILL keyword (PostgreSQL doesn't support it)
+	sql = strings.ReplaceAll(sql, " ZEROFILL", "")
+
 	// Convert MySQL's || string concatenation to PostgreSQL format
 	// Note: This is already handled at AST level, this is just a backup
 

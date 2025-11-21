@@ -507,3 +507,57 @@ func TestTinyIntOne(t *testing.T) {
 	assert.Equal(t, 0, isActive)
 	assert.Equal(t, 1, flag)
 }
+
+// TestMediumInt tests MEDIUMINT type conversion
+// MySQL MEDIUMINT is converted to PostgreSQL INTEGER
+func TestMediumInt(t *testing.T) {
+	db, err := sql.Open("mysql", "root@tcp(localhost:3306)/test")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, _ = db.Exec("DROP TABLE IF EXISTS test_mediumint")
+	_, err = db.Exec(`CREATE TABLE test_mediumint (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		medium_val MEDIUMINT
+	)`)
+	require.NoError(t, err)
+	defer db.Exec("DROP TABLE IF EXISTS test_mediumint")
+
+	// MEDIUMINT range: -8388608 to 8388607
+	_, err = db.Exec("INSERT INTO test_mediumint (medium_val) VALUES (8388607)")
+	assert.NoError(t, err)
+
+	var val int
+	err = db.QueryRow("SELECT medium_val FROM test_mediumint WHERE id = 1").Scan(&val)
+	assert.NoError(t, err)
+	assert.Equal(t, 8388607, val)
+}
+
+// TestDisplayWidth tests integer display width handling
+// PostgreSQL doesn't support display width - it's automatically removed
+// MySQL: INT(11), INT(5) ZEROFILL -> PostgreSQL: INTEGER
+func TestDisplayWidth(t *testing.T) {
+	db, err := sql.Open("mysql", "root@tcp(localhost:3306)/test")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, _ = db.Exec("DROP TABLE IF EXISTS test_display_width")
+	_, err = db.Exec(`CREATE TABLE test_display_width (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		val INT(11),
+		zeropad INT(5) ZEROFILL
+	)`)
+	require.NoError(t, err)
+	defer db.Exec("DROP TABLE IF EXISTS test_display_width")
+
+	// Display width is cosmetic and should be ignored in PostgreSQL
+	_, err = db.Exec("INSERT INTO test_display_width (val, zeropad) VALUES (123, 456)")
+	assert.NoError(t, err)
+
+	// Verify values can be retrieved
+	var val, zeropad int
+	err = db.QueryRow("SELECT val, zeropad FROM test_display_width WHERE id = 1").Scan(&val, &zeropad)
+	assert.NoError(t, err)
+	assert.Equal(t, 123, val)
+	assert.Equal(t, 456, zeropad)
+}

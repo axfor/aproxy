@@ -64,52 +64,6 @@ func TestMySQLSpecific_SET(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestMySQLSpecific_MEDIUMINT tests MEDIUMINT which doesn't exist in PG
-// PG Alternative: INT
-func TestMySQLSpecific_MEDIUMINT(t *testing.T) {
-	db, err := sql.Open("mysql", proxyDSN)
-	require.NoError(t, err)
-	defer db.Close()
-
-	db.Exec("DROP TABLE IF EXISTS test_mediumint")
-	_, err = db.Exec(`CREATE TABLE test_mediumint (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		medium_val MEDIUMINT
-	)`)
-	require.NoError(t, err)
-	defer db.Exec("DROP TABLE IF EXISTS test_mediumint")
-
-	// MEDIUMINT range: -8388608 to 8388607
-	_, err = db.Exec("INSERT INTO test_mediumint (medium_val) VALUES (8388607)")
-	assert.NoError(t, err)
-
-	var val int
-	err = db.QueryRow("SELECT medium_val FROM test_mediumint WHERE id = 1").Scan(&val)
-	assert.NoError(t, err)
-	assert.Equal(t, 8388607, val)
-}
-
-// TestMySQLSpecific_DisplayWidth tests integer display width like INT(11)
-// PG doesn't support display width - it's purely cosmetic in MySQL
-func TestMySQLSpecific_DisplayWidth(t *testing.T) {
-	db, err := sql.Open("mysql", proxyDSN)
-	require.NoError(t, err)
-	defer db.Close()
-
-	db.Exec("DROP TABLE IF EXISTS test_display_width")
-	_, err = db.Exec(`CREATE TABLE test_display_width (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		val INT(11),
-		zeropad INT(5) ZEROFILL
-	)`)
-	require.NoError(t, err)
-	defer db.Exec("DROP TABLE IF EXISTS test_display_width")
-
-	// Display width is cosmetic and should be ignored in PG
-	_, err = db.Exec("INSERT INTO test_display_width (val, zeropad) VALUES (123, 456)")
-	assert.NoError(t, err)
-}
-
 // TestMySQLSpecific_SpatialTypes tests GEOMETRY, POINT, etc.
 // PG Alternative: PostGIS extension
 func TestMySQLSpecific_SpatialTypes(t *testing.T) {

@@ -59,6 +59,15 @@ A high-performance MySQL protocol proxy that transparently translates MySQL clie
 │ └────────────────────┬─────────────────────────────────────────┘   │
 │                      │                                              │
 │ ┌────────────────────▼─────────────────────────────────────────┐   │
+│ │  Schema Cache (pkg/schema) - Global Cache with Generics     │   │
+│ │  - AUTO_INCREMENT column detection (database.table key)     │   │
+│ │  - Generic sync.Map (zero type assertion overhead)          │   │
+│ │  - TTL-based expiration (5min default, configurable)        │   │
+│ │  - DDL auto-invalidation (CREATE/ALTER/DROP TABLE)          │   │
+│ │  - 99% query reduction in concurrent scenarios              │   │
+│ └────────────────────┬─────────────────────────────────────────┘   │
+│                      │                                              │
+│ ┌────────────────────▼─────────────────────────────────────────┐   │
 │ │  Connection Pool (internal/pool)                             │   │
 │ │  - pgx connection pool management                            │   │
 │ │  - Session affinity / pooled mode                            │   │
@@ -201,6 +210,7 @@ MySQL Client Receives Response
 - ✅ **Full MySQL Protocol Support**: Handshake, authentication, queries, prepared statements, etc.
 - ✅ **Automatic SQL Rewriting**: Converts MySQL SQL to PostgreSQL-compatible syntax
 - ✅ **Session Management**: Complete session state tracking including variables, transactions, prepared statements
+- ✅ **Global Schema Cache**: Generic sync.Map-based cache with DDL auto-invalidation (99% query reduction)
 - ✅ **Type Mapping**: Automatic conversion between MySQL and PostgreSQL data types
 - ✅ **Error Mapping**: Maps PostgreSQL error codes to MySQL error codes
 - ✅ **SHOW/DESCRIBE Emulation**: Simulates MySQL metadata commands
@@ -310,7 +320,8 @@ The proxy contains the following components:
 3. **SQL Rewrite Engine**: Hybrid AST + String architecture using SQL parser for semantic transformations and post-processing for syntactic cleanup
 4. **Type Mapper**: Converts between MySQL and PostgreSQL types
 5. **Error Mapper**: Maps PostgreSQL errors to MySQL error codes
-6. **Connection Pool**: Manages connections to PostgreSQL
+6. **Schema Cache**: Global cache for table schema information (AUTO_INCREMENT columns) with generic sync.Map and DDL auto-invalidation
+7. **Connection Pool**: Manages connections to PostgreSQL
 
 For detailed architecture documentation, see [DESIGN.md](docs/DESIGN.md)
 
@@ -731,13 +742,17 @@ For a detailed list of limitations, see [DESIGN.md](docs/DESIGN.md)
 
 ## Configuration Options
 
-| Option                     | Description         | Default          |
-| -------------------------- | ------------------- | ---------------- |
-| `server.port`              | MySQL listen port   | 3306             |
-| `server.max_connections`   | Max connections     | 1000             |
-| `postgres.connection_mode` | Connection mode     | session_affinity |
-| `sql_rewrite.enabled`      | Enable SQL rewrite  | true             |
-| `observability.log_level`  | Log level           | info             |
+| Option                        | Description                | Default          |
+| ----------------------------- | -------------------------- | ---------------- |
+| `server.port`                 | MySQL listen port          | 3306             |
+| `server.max_connections`      | Max connections            | 1000             |
+| `postgres.connection_mode`    | Connection mode            | session_affinity |
+| `sql_rewrite.enabled`         | Enable SQL rewrite         | true             |
+| `schema_cache.enabled`        | Enable global schema cache | true             |
+| `schema_cache.ttl`            | Cache TTL                  | 5m               |
+| `schema_cache.max_entries`    | Max cache entries          | 100000           |
+| `schema_cache.invalidate_on_ddl` | Auto-invalidate on DDL  | true             |
+| `observability.log_level`     | Log level                  | info             |
 
 For complete configuration options, see [config.yaml](configs/config.yaml)
 

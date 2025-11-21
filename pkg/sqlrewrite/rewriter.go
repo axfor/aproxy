@@ -8,15 +8,17 @@ import (
 
 // Rewriter is the main SQL rewriter using AST-based rewriting
 type Rewriter struct {
-	enabled     bool
-	astRewriter *ASTRewriter
+	enabled            bool
+	astRewriter        *ASTRewriter
+	unsupportedDetector *UnsupportedDetector
 }
 
 // NewRewriter creates a rewriter with AST rewriter
 func NewRewriter(enabled bool) *Rewriter {
 	return &Rewriter{
-		enabled:     enabled,
-		astRewriter: NewASTRewriter(),
+		enabled:            enabled,
+		astRewriter:        NewASTRewriter(),
+		unsupportedDetector: NewUnsupportedDetector(),
 	}
 }
 
@@ -40,6 +42,14 @@ func (r *Rewriter) Rewrite(sql string) (string, error) {
 	}
 
 	return sql, nil
+}
+
+// DetectUnsupported detects unsupported MySQL features in SQL
+func (r *Rewriter) DetectUnsupported(sql string) []UnsupportedFeature {
+	if r.unsupportedDetector == nil {
+		return nil
+	}
+	return r.unsupportedDetector.Detect(sql)
 }
 
 // RewritePrepared rewrites a prepared statement and returns the parameter count

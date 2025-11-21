@@ -146,6 +146,32 @@ func (ch *ConnectionHandler) HandleQuery(query string) (*mysql.Result, error) {
 		return &mysql.Result{Status: 0}, nil
 	}
 
+	// Detect unsupported MySQL features before rewriting
+	unsupportedFeatures := ch.handler.rewriter.DetectUnsupported(query)
+	if len(unsupportedFeatures) > 0 {
+		for _, feature := range unsupportedFeatures {
+			switch feature.Severity {
+			case "error":
+				ch.handler.logger.Error("Unsupported MySQL feature detected",
+					zap.String("feature", feature.Feature),
+					zap.String("category", feature.Category),
+					zap.String("sql", feature.SQL),
+					zap.String("suggestion", feature.Suggestion))
+			case "warning":
+				ch.handler.logger.Warn("MySQL feature may not work as expected",
+					zap.String("feature", feature.Feature),
+					zap.String("category", feature.Category),
+					zap.String("sql", feature.SQL),
+					zap.String("suggestion", feature.Suggestion))
+			case "info":
+				ch.handler.logger.Info("MySQL feature note",
+					zap.String("feature", feature.Feature),
+					zap.String("category", feature.Category),
+					zap.String("suggestion", feature.Suggestion))
+			}
+		}
+	}
+
 	rewrittenSQL, err := ch.handler.rewriter.Rewrite(query)
 	if err != nil {
 		ch.handler.metrics.IncErrors("rewrite")
